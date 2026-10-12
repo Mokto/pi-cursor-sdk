@@ -16,9 +16,9 @@ jobs:
   resolve:
     permissions:
       contents: read
-    uses: fitchmultz/.github/.github/workflows/resolve-hosts.yml@11d531f79564b555ebf75348d7275eaf0cb6d825 # main
+    uses: fitchmultz/.github/.github/workflows/resolve-hosts.yml@3d1b323fd602274c55e5f44692f24c8605e52b60 # main
     with:
-      automation-ref: 11d531f79564b555ebf75348d7275eaf0cb6d825 # main
+      automation-ref: 3d1b323fd602274c55e5f44692f24c8605e52b60 # main
       official-version: ${{ inputs.official-version }}
       fork-ref: ${{ inputs.fork-ref }}
 
@@ -49,12 +49,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: fitchmultz/.github
-          ref: 11d531f79564b555ebf75348d7275eaf0cb6d825 # main
+          ref: 3d1b323fd602274c55e5f44692f24c8605e52b60 # main
           path: automation
           persist-credentials: false
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Qualify both frozen latest host graphs and installed forms
         env:
+          # The shared host helpers read official installer assets through the GitHub API.
+          GH_TOKEN: ${{ github.token }}
           OFFICIAL_VERSION: ${{ needs.resolve.outputs.official-version }}
           FORK_REF: ${{ needs.resolve.outputs.fork-ref }}
           PI_COMPAT_EVIDENCE_DIR: ${{ runner.temp }}/cursor-hosts
@@ -98,13 +100,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: fitchmultz/.github
-          ref: 11d531f79564b555ebf75348d7275eaf0cb6d825 # main
+          ref: 3d1b323fd602274c55e5f44692f24c8605e52b60 # main
           path: automation
           persist-credentials: false
       - run: npm ci --no-audit --no-fund
       - name: Select the frozen latest official graph
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
           OFFICIAL_VERSION: ${{ needs.resolve.outputs.official-version }}
           PI_COMPAT_EVIDENCE_DIR: ${{ runner.temp }}/native-host
         run: node scripts/ci-compatibility.mjs --automation automation --official-version "$OFFICIAL_VERSION" --select-only
