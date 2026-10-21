@@ -21,7 +21,7 @@ const TOOL_TAIL_GUARD = [
 	"Exact-output requests: output exactly the requested text; no preamble or checks unless asked.",
 	"Tools: call available Cursor SDK/MCP tools; never print tool cards as assistant text.",
 	"Do not comment on GitHub issues or PRs unless the user asked.",
-	"When exposed, prefer pi__mcp for MCP work and pi__subagent for delegation; use Cursor-configured MCP or Cursor-native subagents only when the matching pi__ tool is not exposed or unavailable.",
+	"For MCP work and delegation, prefer matching exposed pi__* tools using their listed names, schemas, and prompt guidelines; use Cursor-configured MCP or Cursor-native subagents only when the matching pi tool is not exposed or unavailable.",
 ].join("\n");
 
 describe("buildCursorPrompt", () => {
@@ -471,7 +471,7 @@ describe("buildCursorPrompt", () => {
 		expect(compactPrompt.text).not.toContain("Bridged pi tools:");
 		expect(compactPrompt.text).not.toContain("Use pi__cursor_ask_question");
 		expect(compactPrompt.text).not.toContain("Exposed pi__* bridge tools");
-		expect(compactPrompt.text).not.toContain("prefer pi__mcp");
+		expect(compactPrompt.text).not.toContain("prefer matching exposed pi__* tools");
 		expect(defaultPrompt.text.length - compactPrompt.text.length).toBeGreaterThan(100);
 
 		const planPrompt = buildCursorPrompt(ctx, { agentMode: "plan", includePiBridgeGuidance: false });
@@ -480,7 +480,7 @@ describe("buildCursorPrompt", () => {
 		const incrementalPlanPrompt = buildCursorIncrementalPrompt(ctx, { agentMode: "plan", includePiBridgeGuidance: false });
 		expect(incrementalPlanPrompt.text).toContain("Cursor SDK mode is plan for this run");
 		expect(incrementalPlanPrompt.text).not.toContain("Exposed pi__* bridge tools");
-		expect(incrementalPlanPrompt.text).not.toContain("prefer pi__mcp");
+		expect(incrementalPlanPrompt.text).not.toContain("prefer matching exposed pi__* tools");
 	});
 
 	it("keeps pi-bridge framing when context tools are present or unknown", () => {
@@ -514,7 +514,7 @@ describe("buildCursorPrompt", () => {
 		expect(result.text).toContain("Do not claim pi-side or WebSearch/WebFetch tools");
 		expect(result.text).toContain("Do not comment on GitHub issues or PRs unless the user asked");
 		expect(result.text).not.toContain("Use pi__cursor_ask_question");
-		expect(result.text).toContain("prefer pi__mcp for MCP work and pi__subagent for delegation");
+		expect(result.text).toContain("prefer matching exposed pi__* tools using their listed names, schemas, and prompt guidelines");
 		expect(result.text).not.toContain("Pi bridge contract:");
 		expect(result.text).not.toContain("do not use SwitchMode");
 	});
