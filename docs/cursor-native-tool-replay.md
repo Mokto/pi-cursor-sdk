@@ -7,7 +7,7 @@ pi-cursor-sdk has two separate pi-facing paths plus Cursor's own local-agent too
 1. **Local pi MCP bridge:** default-on for local Cursor agents. It exposes the current pi session's bridgeable active tools to Cursor through a tokenized `127.0.0.1` MCP endpoint, excluding internal Cursor replay activity names and, by default, overlapping built-in pi tools (`read`, `bash`, `write`, `edit`, `grep`, `find`, `ls`). When Cursor calls one of those MCP tools, pi executes the real pi tool through the normal pi tool path.
 2. **Cursor native tool replay:** display-only. It renders completed Cursor SDK tool activity as pi-native-looking cards using recorded Cursor results.
 
-This document is about replay. Replay is not execution and is not the local pi bridge.
+This document is about replay. Replay is not execution and is not the local pi bridge. Pi `tool_call` hooks cannot govern native work that already ran before replay; blocking or rewriting its card cannot prevent or transform the original command. Hiding replay or disabling the bridge is not enforcement. For the opt-in public SDK MCP-only local surface, its ambient-MCP limits, and why it is not a sandbox, see [MCP-only local turns](./cursor-tool-surfaces.md#opt-in-mcp-only-local-turns).
 
 ## Live bridge vs replay
 

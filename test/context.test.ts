@@ -25,6 +25,17 @@ const TOOL_TAIL_GUARD = [
 ].join("\n");
 
 describe("buildCursorPrompt", () => {
+	it("keeps MCP-only bootstrap and incremental plan guidance free of unavailable native tools", () => {
+		const context = { messages: [{ role: "user" as const, content: "inspect", timestamp: 1 }] };
+		for (const build of [buildCursorPrompt, buildCursorIncrementalPrompt]) {
+			const text = build(context, { nativeToolsEnabled: false, agentMode: "plan" }).text;
+			expect(text).toContain("native Shell and task/subagents are disabled");
+			expect(text).not.toContain("Shell: use explicit");
+			expect(text).not.toContain("Safe/read-only shell commands");
+			expect(text).not.toContain("Cursor-native subagents only");
+		}
+	});
+
 	it("omits pi tool catalogs while preserving local skill catalogs for Cursor-facing system instructions", () => {
 		const ctx: Context = {
 			systemPrompt: [

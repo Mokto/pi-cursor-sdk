@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
 import { concurrentFixture, retainNativeEvidence, SessionManager, setupNativeCursorHarness, state } from "./helpers/native-cursor-harness.mjs";
@@ -145,3 +146,76 @@ test("independent concurrent streams retain owned persisted lineage and sibling 
     }
   });
 });
+
+test("MCP-only ordinary turns reach the real Pi tool_call block boundary without executing the tool", { timeout: 60000 }, async (t) => {
+  await concurrentFixture(t, async ({ root, create }) => {
+    process.env.PI_CURSOR_NATIVE_TOOLS = "0";
+    const blocker = join(root, "block-fixture.mjs");
+    await writeFile(blocker, `export default function(pi) {
+      pi.on("tool_call", event => {
+        if (event.toolName === "fixture_bridge") return { block: true, reason: "NATIVE_MCP_POLICY_DENIED" };
+      });
+    }`);
+    let executions = 0;
+    const fixture = await create("native-mcp-policy", { beforeExtensions: [blocker], tool: async () => {
+      executions++;
+      return { content: [{ type: "text", text: "must not execute" }], details: {} };
+    } });
+    const beforeResults = state.bridgeResults.length;
+    await fixture.session.prompt("BRIDGE_FIXTURE");
+    const created = state.created.findLast(agent => agent.options.local?.cwd === fixture.cwd);
+    assert.deepEqual(created.options.tools, ["mcp"]);
+    assert.equal(executions, 0);
+    assert.equal(state.bridgeResults.length, beforeResults + 1);
+    assert.equal(state.bridgeResults.at(-1).isError, true);
+    assert.match(JSON.stringify(state.bridgeResults.at(-1).content), /NATIVE_MCP_POLICY_DENIED/);
+    const result = SessionManager.open(fixture.manager.getSessionFile()).getBranch().findLast(entry =>
+      entry.type === "message" && entry.message.role === "toolResult" && entry.message.toolName === "fixture_bridge");
+    assert.ok(result?.message.isError);
+    assert.match(JSON.stringify(result.message.content), /NATIVE_MCP_POLICY_DENIED/);
+    // Summary agents are intentionally independent of the ordinary MCP-only policy.
+    const compacted = await fixture.session.compact();
+    assert.match(compacted.summary, /OFFLINE_CURSOR_DONE/);
+    const summaryAgent = state.created.findLast(agent => agent.options.local?.cwd === fixture.cwd);
+    assert.deepEqual(summaryAgent.options.tools, []);
+    assert.deepEqual(summaryAgent.options.local.settingSources, []);
+    assert.equal(summaryAgent.options.mcpServers, undefined);
+    assert.ok(state.disposed.includes(summaryAgent.agentId));
+    await fixture.session.prompt("ordinary after MCP-only compaction");
+    const ordinary = state.created.findLast(agent => agent.options.local?.cwd === fixture.cwd);
+    assert.deepEqual(ordinary.options.tools, ["mcp"]);
+    assert.ok(ordinary.options.mcpServers?.pi_tools);
+    await retainNativeEvidence("native-mcp-policy-blocked", fixture.manager, fixture.cwd);
+  });
+});
+
+for (const nativeToolsEnabled of [true, false]) {
+  test(`policy switch from nativeTools=${nativeToolsEnabled} rejects a real pending bridge continuation before SDK result delivery`, { timeout: 60000 }, async (t) => {
+    await concurrentFixture(t, async ({ root, create }) => {
+      process.env.PI_CURSOR_NATIVE_TOOLS = nativeToolsEnabled ? "1" : "0";
+      const switcher = join(root, "switch-policy.mjs");
+      await writeFile(switcher, `export default function(pi) { let switched = false;
+        pi.on("before_provider_headers", (_event, ctx) => {
+          if (!switched && ctx.sessionManager.getBranch().some(e => e.type === "message" && e.message.role === "toolResult")) {
+            switched = true; process.env.PI_CURSOR_NATIVE_TOOLS = ${JSON.stringify(nativeToolsEnabled ? "0" : "1")};
+          }
+        });
+      }`);
+      let executions = 0;
+      const owner = await create("live-policy-switch", { afterExtensions: [switcher], tool: async () => {
+        executions++;
+        return { content: [{ type: "text", text: "Pi work completed before policy switch" }], details: {} };
+      } });
+      const resultsBefore = state.bridgeResults.length;
+      await owner.session.prompt("BRIDGE_FIXTURE");
+      assert.equal(executions, 1, "real Pi execution precedes continuation header hook");
+      assert.equal(owner.session.messages.at(-1).stopReason, "error");
+      assert.match(owner.session.messages.at(-1).errorMessage, /native tool policy changed.*abort the pending run/i);
+      assert.equal(state.bridgeResults.length, resultsBefore, "opposite-policy continuation must not unblock the SDK MCP waiter");
+      const branch = SessionManager.open(owner.manager.getSessionFile()).getBranch();
+      assert.ok(branch.some(entry => entry.type === "message" && entry.message.role === "toolResult" && entry.message.toolName === "fixture_bridge"));
+      assert.equal(branch.findLast(entry => entry.type === "message" && entry.message.role === "assistant").message.stopReason, "error");
+      await retainNativeEvidence(`native-policy-switch-${nativeToolsEnabled}`, owner.manager, owner.cwd);
+    });
+  });
+}

@@ -1,3 +1,4 @@
+import { assertCursorNativeToolsRuntime, resolveCursorNativeToolsEnabled } from "./cursor-native-tools.js";
 import { CursorLiveRunAbortError } from "./cursor-live-run-coordinator.js";
 import { drainExistingCursorLiveRunBeforeSend } from "./cursor-provider-live-run-drain.js";
 import { installCursorSdkProcessErrorGuard } from "./cursor-sdk-process-error-guard.js";
@@ -68,6 +69,13 @@ export class CursorProviderTurnRunner {
 			this.throwIfAborted();
 			const { scope } = this.params;
 			const cwd = scope.cwd;
+
+			// Resolved once here, before any drain await, so the drain decision and the
+			// prepare dispatch below always act on the same config snapshot.
+			const resolvedConfig = resolveCursorProviderTurnConfig(cwd, scope.projectTrusted, scope.scopeKey);
+			this.runtimeTarget = resolvedConfig.runtime.value;
+			const nativeToolsEnabled = resolveCursorNativeToolsEnabled();
+			assertCursorNativeToolsRuntime(this.runtimeTarget, nativeToolsEnabled);
 			this.sdkEventDebug = CursorSdkEventDebugSink.maybeCreate({
 				cwd,
 				modelId: model.id,
@@ -76,13 +84,9 @@ export class CursorProviderTurnRunner {
 			});
 			sdkEventDebugRef.current = this.sdkEventDebug;
 			this.sdkEventDebug?.recordContextSnapshot(context);
-			// Resolved once here, before any drain await, so the drain decision and the
-			// prepare dispatch below always act on the same config snapshot.
-			const resolvedConfig = resolveCursorProviderTurnConfig(cwd, scope.projectTrusted, scope.scopeKey);
-			this.runtimeTarget = resolvedConfig.runtime.value;
 			if (resolvedConfig.runtime.value === "local" && this.params.request.purpose === "normal") {
 				if (
-					(await drainExistingCursorLiveRunBeforeSend(stream, partial, model, context, options?.signal, this.sdkEventDebug, scope.scopeKey, this.params.request.occupancyFloor)) ===
+					(await drainExistingCursorLiveRunBeforeSend(stream, partial, model, context, options?.signal, this.sdkEventDebug, scope.scopeKey, this.params.request.occupancyFloor, nativeToolsEnabled)) ===
 					"stream_ended"
 				) {
 					return;
@@ -98,6 +102,7 @@ export class CursorProviderTurnRunner {
 				sdkEventDebug: this.sdkEventDebug,
 				throwIfAborted: () => this.throwIfAborted(),
 				resolvedConfig,
+				nativeToolsEnabled,
 			});
 
 			const usage = await this.params.usageRecorder.start({

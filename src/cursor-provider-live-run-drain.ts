@@ -449,6 +449,7 @@ export async function drainExistingCursorLiveRunBeforeSend(
 	turnDebugRecorder: CursorSdkEventDebugRecorder | undefined,
 	scopeKey: string,
 	occupancyFloor?: number,
+	nativeToolsEnabled = true,
 ): Promise<LiveRunPreSendOutcome> {
 	turnDebugRecorder?.recordDrainEvent("pre_send_start", {});
 	while (true) {
@@ -461,6 +462,11 @@ export async function drainExistingCursorLiveRunBeforeSend(
 		try {
 			const outcome = await cursorLiveRuns.withRunLease(run, signal, async () => {
 				if (run.disposed) return "continue_send" as const;
+				// Check under the drain lease, before consuming/delivering Pi results:
+				// resolving a bridge waiter can resume the SDK's old tool surface.
+				if ((run.nativeToolsEnabled !== false) !== nativeToolsEnabled) {
+					throw new Error("Cursor native tool policy changed while a local run is pending; restore the prior policy to finish it or abort the pending run before retrying.");
+				}
 				const consumed = cursorLiveRuns.consumeToolResults(run, context, getCursorNativeReplayIdFromToolCallId);
 				await run.bridgeRun?.resolveToolResults(consumed.toolResults);
 				const shouldChainUserInput = run.chainUserInputAfterCompletion || hasTrailingUserMessagesAfterToolResults(context);

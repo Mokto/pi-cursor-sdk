@@ -59,6 +59,7 @@ import type {
 } from "./cursor-provider-turn-types.js";
 import type { CursorSdkEventDebugSink } from "./cursor-sdk-event-debug.js";
 import type { SessionCursorAgentLease } from "./cursor-session-agent.js";
+import { assertCursorNativeToolsRuntime } from "./cursor-native-tools.js";
 import { prepareCursorSummaryProviderTurn } from "./cursor-provider-turn-summary.js";
 
 export interface PrepareCursorProviderTurnParams {
@@ -69,6 +70,8 @@ export interface PrepareCursorProviderTurnParams {
 	throwIfAborted: () => void;
 	/** Snapshot resolved once by the runner before draining; reused unchanged through prepare. */
 	resolvedConfig: CursorResolvedSdkConfig;
+	/** Snapshotted before drain/acquisition, never re-read during creation/resume. */
+	nativeToolsEnabled: boolean;
 }
 
 interface PrepareCursorProviderTurnContext extends PrepareCursorProviderTurnParams {
@@ -252,7 +255,7 @@ async function prepareCursorCloudProviderTurn(
 async function prepareCursorLocalProviderTurn(
 	prepareParams: PrepareCursorProviderTurnContext,
 ): Promise<LocalCursorProviderTurnPrepareResult> {
-	const { params, cwd, resolvedApiKey, sdkEventDebug, throwIfAborted, resolvedConfig, agentMode, selection, fastEnabled, agents, customSubagentNames } = prepareParams;
+	const { params, cwd, resolvedApiKey, sdkEventDebug, throwIfAborted, resolvedConfig, agentMode, selection, fastEnabled, agents, customSubagentNames, nativeToolsEnabled } = prepareParams;
 	const { model, context, options } = params;
 
 	let restoreCursorSdkOutputFilter: (() => void) | undefined;
@@ -289,6 +292,7 @@ async function prepareCursorLocalProviderTurn(
 			settingSources,
 			localSafety,
 			agents,
+			nativeToolsEnabled,
 			localResume: resolvedConfig.local.resume.value,
 			storeRoot: resolvedConfig.local.storeRoot.value,
 			useHttp1ForAgent,
@@ -314,6 +318,7 @@ async function prepareCursorLocalProviderTurn(
 				...getCursorPromptOptions(model),
 				nativeSourceRoles: params.request.nativeSourceRoles,
 				agentMode,
+				nativeToolsEnabled,
 				includePiBridgeGuidance,
 				includePiAskQuestionGuidance: false,
 			};
@@ -323,6 +328,7 @@ async function prepareCursorLocalProviderTurn(
 			return {
 				...promptOptions,
 				toolManifest: buildCursorToolManifestText({
+					nativeToolsEnabled,
 					bridgeSnapshot: sessionAgentLease.bridgeRun?.snapshot,
 					piBridgeEnabled: resolveCursorPiToolBridgeEnabled(),
 					includePiBridgeGuidance,
@@ -373,6 +379,7 @@ async function prepareCursorLocalProviderTurn(
 			agentMode,
 			localForce: resolvedConfig.local.force.value,
 			localResume: resolvedConfig.local.resume.value,
+			...(nativeToolsEnabled ? {} : { nativeToolsEnabled: false, tools: ["mcp"] }),
 			resumedAgent: sessionAgentLease.resumed,
 			activeToolNames: activeToolNames ? [...activeToolNames] : [],
 			sessionAgentScopeKey,
@@ -386,6 +393,7 @@ async function prepareCursorLocalProviderTurn(
 			? cursorLiveRuns.start({
 					id: useNativeToolReplay ? nativeReplayId : bridgeRun?.id ?? nativeReplayId,
 					agent,
+					nativeToolsEnabled,
 					bridgeRun,
 					sessionBridgeRun,
 					sessionAgentScopeKey,
@@ -467,6 +475,7 @@ export async function prepareCursorProviderTurn(
 ): Promise<CursorProviderTurnPrepareResult> {
 	const { params, resolvedConfig } = prepareParams;
 	const { model, options } = params;
+	assertCursorNativeToolsRuntime(resolvedConfig.runtime.value, prepareParams.nativeToolsEnabled);
 
 	const fastEnabled = resolvedConfig.runtime.value === "cloud" ? undefined : getEffectiveFastForModelId(model.id, params.scope.scopeKey);
 	const selection = buildCursorModelSelection(model.id, options?.reasoning ?? "off", fastEnabled);

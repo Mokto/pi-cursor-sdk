@@ -65,6 +65,13 @@ describe("cursor-tool-manifest", () => {
 		expect(empty).toContain("no pi__* tools exposed");
 	});
 
+	it("describes MCP-only without advertising host tools", () => {
+		const text = buildCursorToolManifestText({ nativeToolsEnabled: false });
+		expect(text).toContain("Cursor native tools (including task/subagents): disabled");
+		expect(text).toContain("configured MCP depends on Cursor settings");
+		expect(text).not.toContain("read/shell/search/edit/write");
+	});
+
 	it("defaults manifest env to enabled", () => {
 		expect(resolveCursorToolManifestEnabled({})).toBe(true);
 		expect(resolveCursorToolManifestEnabled({ [CURSOR_TOOL_MANIFEST_ENV]: "0" })).toBe(false);
