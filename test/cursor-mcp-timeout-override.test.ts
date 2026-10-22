@@ -88,6 +88,7 @@ describe("Cursor MCP timeout override", () => {
 
 		await expect(
 			prepareCursorProviderTurn({
+				nativeToolsEnabled: true,
 				params: {
 					...captureProviderTestOwnership(makeModel(), makeContext()),
 					model: { id: "cursor/composer-2.5", provider: "cursor", api: "assistant" } as never,

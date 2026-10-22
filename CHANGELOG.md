@@ -4,6 +4,10 @@
 
 ### Added
 
+- Add `/cursor-abort` as an explicit session-scoped release path for a pending local Cursor run after a native-tool policy mismatch. Ordinary mismatch remains restorable and never cancels implicitly; idle Pi abort has no active signal after the error has settled. Explicit active provider abort now also releases its captured scope's old pending run before preparation. Recovery never delivers stale Pi results, automatically sends a replacement turn, releases sibling scopes, or undoes already-executed work.
+
+- Add opt-in `PI_CURSOR_NATIVE_TOOLS=0` for MCP-only ordinary LOCAL agents using public SDK `tools: ["mcp"]`, excluding all other main tools including native task/subagents. Capture and forward the same policy for create/resume and split pooled/durable identities only on opt-out, and reject opposite-policy pending-run continuation before delivering Pi results; defaults and text-only summaries are unchanged. Cloud fails closed instead of ignoring the control. Keep Pi builtin exposure explicit, and document that native replay hooks/display flags cannot govern original execution, ambient configured MCP remains unless settings are disabled, and permitted Pi/MCP tools are not a sandbox (#368).
+
 - Add `PI_CURSOR_PI_TOOL_BRIDGE_HOST` (`localhost` or the default `127.0.0.1` in the bridge URL) and `PI_CURSOR_PI_TOOL_BRIDGE_PORT` (one port or an inclusive `N-M` range) so a Cursor team MCP allowlist such as `http://localhost:800*/mcp` can admit the pi tool bridge. The server still binds only `127.0.0.1`, and unset settings keep the previous random-port behavior.
 
 ### Changed

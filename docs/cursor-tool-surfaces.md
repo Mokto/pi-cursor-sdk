@@ -6,13 +6,31 @@ pi-cursor-sdk runs Cursor models through the local `@cursor/sdk` agent runtime b
 
 | Surface | Who owns it | Callable by Cursor? | What pi shows |
 | --- | --- | --- | --- |
-| **Cursor SDK host tools** | Cursor local agent | Yes | Native replay cards (`read`, `bash`, …) or neutral Cursor activity. Representative ToolType list: [SDK ToolType replay matrix](./cursor-native-tool-replay.md#sdk-tooltype-replay-matrix). |
+| **Cursor SDK host tools** | Cursor local agent | Yes by default; disabled with `PI_CURSOR_NATIVE_TOOLS=0` | Native replay cards (`read`, `bash`, …) or neutral Cursor activity. Representative ToolType list: [SDK ToolType replay matrix](./cursor-native-tool-replay.md#sdk-tooltype-replay-matrix). |
 | **Configured Cursor MCP** | Cursor settings / `~/.cursor/mcp.json` | Yes (when loaded) | Neutral **Cursor MCP** activity cards on replay |
 | **Pi bridge (`pi__*`)** | pi-cursor-sdk loopback MCP | Yes, when exposed | Real pi tool names (`cursor_ask_question`, `cursor_activate_skill`, extension tools, …) |
 
 Pi CLI tool toggles apply at the pi tool-registry boundary. `--no-tools`, `--tools`, and `--exclude-tools` can remove pi bridge exposure, but they do **not** disable Cursor SDK host tools or configured Cursor MCP servers.
 
 **Not callable:** `cursor-replay-*` IDs in JSONL, pi history tool names used only for display, and transcript labels. Cursor must call exposed `pi__*` MCP names for bridged pi tools, not the pi card name.
+
+## Opt-in MCP-only local turns
+
+`PI_CURSOR_NATIVE_TOOLS=0` restricts **ordinary LOCAL** agents through the public SDK `AgentOptions.tools: ["mcp"]`. All other main-agent tools are omitted, including native `task`/subagents (whose own curated toolsets do not inherit a main-loop restriction). Unset, blank, unrecognized, or enabled values preserve the SDK's default toolset. The canonical boolean parser accepts `0`, `false`, `off`, `none`, `no`, and `disabled` as off, and `1`, `true`, `on`, `yes`, and `enabled` as on, case-insensitively with surrounding whitespace ignored.
+
+To send file/shell work through Pi's normal execution and `tool_call` hook boundary instead of native Cursor tools:
+
+```bash
+PI_CURSOR_NATIVE_TOOLS=0 PI_CURSOR_EXPOSE_BUILTIN_TOOLS=1 PI_CURSOR_SETTING_SOURCES=none pi --model cursor/grok-4.6
+```
+
+The builtin-exposure flag is still required; disabling native tools does **not** silently expose Pi builtins. Pi's active tool registry and hooks still decide which bridged tools are available or blocked. Disabling the bridge as well leaves no Pi tools callable, but does not by itself disable configured Cursor MCP.
+
+**MCP-only is not Pi-only or a sandbox.** The SDK `mcp` capability group retains configured Cursor MCP and the Pi bridge. Ambient configured MCP remains unless setting sources are narrowed or disabled (`PI_CURSOR_SETTING_SOURCES=none`). Non-Pi MCP calls do not pass through Pi's `tool_call` hooks. A permitted Pi or MCP tool can itself run a shell, access files/network, or delegate arbitrary work; this is no OS/process security boundary.
+
+**Native replay cannot enforce a pre-execution policy.** Native Cursor work runs before its recorded result is replayed into Pi. Pi `tool_call` hooks may block a bridged Pi call before its real `execute()`, but blocking or rewriting native replay cannot prevent or transform the original Cursor command. `PI_CURSOR_NATIVE_TOOL_DISPLAY=0`, `PI_CURSOR_REGISTER_NATIVE_TOOLS=0`, Pi tool toggles, and `PI_CURSOR_PI_TOOL_BRIDGE=0` are not native execution controls. Use the SDK tool-surface opt-out rather than fabricated pre-execution callbacks.
+
+The policy is captured before drain/acquisition and forwarded identically to create and resume (SDK tool restrictions are not persisted by Cursor). Opt-out agents have a distinct pooled/durable compatibility identity; defaults retain historical identity bytes. Changing policy replaces the agent at acquisition instead of reusing/resuming one with the opposite policy. Before draining a pending run, the provider checks its captured policy under the drain lease and rejects an opposite-policy continuation without delivering Pi results back to that SDK run. Ordinary mismatch does not cancel the old run: restore the prior policy to finish it, or invoke `/cursor-abort` to release the exact pending local run owned by this session before retrying. This command sends no model turn. If its owned run has an active Cursor Pi turn, it also invokes that turn's public abort before release; it does not abort a non-Cursor Pi turn or release sibling sessions or Cloud agents. Pi's normal abort only signals an active Pi turn; once the mismatch error has fully settled, idle Pi abort cannot reach that older Cursor waiter. Explicit active provider abort still releases its exact scoped pending run even when the signal was aborted before preparation. No recovery path undoes already-executed work. Fresh text-only LOCAL compaction/tree summary agents continue using `tools: []`, independently of this flag. Cloud with explicit native tools disabled fails before SDK creation or lifecycle side effects rather than silently ignoring the control.
 
 ## Discoverability
 
@@ -85,6 +103,7 @@ Disabling or removing an MCP server **only in pi** does not remove Cursor ambien
 | --- | --- |
 | `pi --no-tools` | Disables pi built-in/extension/custom tools and therefore removes pi bridge exposure; Cursor SDK host tools still remain callable. |
 | `pi --tools ...` / `pi --exclude-tools ...` | Narrows pi's active tool registry and therefore the pi bridge snapshot; Cursor SDK host tools and configured Cursor MCP are unchanged. |
+| `PI_CURSOR_NATIVE_TOOLS=0` | Restricts ordinary LOCAL main-agent tools to MCP only, including disabling native task/subagents; Cloud fails closed. Default unchanged. |
 | `PI_CURSOR_SETTING_SOURCES=all` (default) | Loads user/project Cursor MCP, plugins, rules (`~/.cursor/mcp.json`, etc.) |
 | `PI_CURSOR_SETTING_SOURCES=none` | Disables ambient Cursor setting sources for local agents |
 | `PI_CURSOR_SETTING_SOURCES=project,plugins` | Narrows which layers load |

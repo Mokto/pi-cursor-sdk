@@ -60,8 +60,35 @@ describe("streamCursor prompt and model config", () => {
 
 		const local = mockedCreate.mock.calls[0][0].local;
 		expect(local).toMatchObject({ cwd: process.cwd(), settingSources: ["all"], store: expect.any(Object) });
+		expect(mockedCreate.mock.calls[0][0]).not.toHaveProperty("tools");
 		expect(local).not.toHaveProperty("autoReview");
 		expect(local).not.toHaveProperty("sandboxOptions");
+	});
+
+	it("restricts ordinary local turns to MCP without implicitly exposing Pi builtins", async () => {
+		process.env.PI_CURSOR_NATIVE_TOOLS = " off ";
+		process.env.PI_CURSOR_TOOL_MANIFEST = "1";
+		const send = vi.fn().mockResolvedValue({ id: "run-mcp", status: "finished",
+			wait: vi.fn().mockResolvedValue({ status: "finished", result: "done" }), supports: () => false });
+		mockCreatedAgent({ send });
+		await collectEvents(streamCursor(makeModel(), makeContext(), { apiKey: "test-key" }));
+		expect(mockedCreate.mock.calls[0][0].tools).toEqual(["mcp"]);
+		expect(mockedCreate.mock.calls[0][0]).not.toHaveProperty("agents");
+		expect(process.env.PI_CURSOR_EXPOSE_BUILTIN_TOOLS).toBeUndefined();
+		const text = send.mock.calls[0][0].text;
+		expect(text).toContain("Cursor native tools (including task/subagents): disabled");
+		expect(text).not.toContain("Shell: use explicit");
+		expect(text).not.toContain("Cursor-native subagents only");
+	});
+
+	it("rejects native-tools opt-out on Cloud before SDK creation or local acquisition", async () => {
+		process.env.PI_CURSOR_NATIVE_TOOLS = "0";
+		process.env.PI_CURSOR_RUNTIME = "cloud";
+		const events = await collectEvents(streamCursor(makeModel(), makeContext(), { apiKey: "test-key" }));
+		expect(getErrorEvent(events).error.errorMessage).toContain("PI_CURSOR_NATIVE_TOOLS=0 requires local runtime");
+		expect(mockedCreate).not.toHaveBeenCalled();
+		expect(mockedResume).not.toHaveBeenCalled();
+		expect(mockedCreateAgentPlatform).not.toHaveBeenCalled();
 	});
 
 	it("sets absolute CURSOR_RIPGREP_PATH before local Agent.create", async () => {

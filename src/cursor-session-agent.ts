@@ -140,6 +140,8 @@ interface SessionCursorAgentCreateParams {
 	settingSources?: SettingSource[];
 	localSafety?: CursorLocalSafetyOptions;
 	agents?: AgentOptions["agents"];
+	/** Captured by the turn owner before asynchronous acquisition. */
+	nativeToolsEnabled?: boolean;
 	useHttp1ForAgent?: boolean;
 	onBridgeToolRequest?: (request: CursorPiBridgeToolRequest) => void;
 	debugRecorder?: CursorSdkEventDebugRecorder;
@@ -254,6 +256,8 @@ function buildSessionAgentPoolKey(scopeKey: string, params: SessionCursorAgentCr
 		buildApiKeyPoolKeyFingerprint(params.apiKey),
 		buildBridgePoolKeySuffix("bridge" in params ? params.bridge : getRegisteredCursorPiToolBridge()),
 		...buildCustomSubagentPoolKeySuffix(params.agents),
+		// Omit for the default so historical durable keys remain byte-for-byte stable.
+		...(params.nativeToolsEnabled === false ? ["tools:mcp-only"] : []),
 	].join("\0");
 }
 
@@ -520,6 +524,7 @@ async function createSessionAgentEntry(
 				localSafety: params.localSafety,
 				store: sessionStore!.store,
 			}),
+			...(params.nativeToolsEnabled === false ? { tools: ["mcp"] } : {}),
 			...(bridgeRun?.mcpServers ? { mcpServers: bridgeRun.mcpServers } : {}),
 			...(params.agents && Object.keys(params.agents).length ? { agents: params.agents } : {}),
 		});
