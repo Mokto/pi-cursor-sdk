@@ -85,6 +85,8 @@ PI_CURSOR_PI_TOOL_BRIDGE_HOST=localhost PI_CURSOR_PI_TOOL_BRIDGE_PORT=8000-8009 
 PI_CURSOR_TOOL_MANIFEST=0 pi --model cursor/grok-4.6
 ```
 
+For `localhost`, the bridge owns both `127.0.0.1` and `::1` on the selected port before advertising its URL; a conflict on either family skips the port, and missing IPv6 fails closed. The default remains IPv4-only. Host/port settings are captured for the shared server lifetime, not changed under active runs; dispose all its runs before changing them.
+
 ## Runtime and transport policy
 
 Current defaults:

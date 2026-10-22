@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { request as httpRequest } from "node:http";
-import { createServer as createNetServer, type Server as NetServer } from "node:net";
+import { createServer as createHttpServer, request as httpRequest, Server as HttpServer } from "node:http";
+import { getDefaultResultOrder, setDefaultResultOrder } from "node:dns";
+import { lookup } from "node:dns/promises";
+import { createServer as createNetServer, getDefaultAutoSelectFamily, setDefaultAutoSelectFamily, Server as NetServer } from "node:net";
+import { installedCursorModules } from "./helpers/cursor-sdk-installed-modules.js";
 import { resolveCursorPiToolBridgePortRange } from "../src/cursor-pi-tool-bridge-env.js";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import type { Context, ToolResultMessage } from "@earendil-works/pi-ai";
@@ -64,7 +67,35 @@ async function waitForQueuedRequests(run: CursorPiToolBridgeRun) {
 async function connectClient(url: string) {
 	const client = new Client({ name: "pi-cursor-sdk-test", version: "1.0.0" });
 	const transport = new StreamableHTTPClientTransport(new URL(url));
-	await client.connect(transport);
+	try { await client.connect(transport); }
+	catch (error) {
+		await client.close().catch(() => undefined);
+		await transport.close().catch(() => undefined);
+		throw error;
+	}
+	return { client, transport };
+}
+
+async function connectInstalledClient(url: string) {
+	const modules = await installedCursorModules();
+	const clients = Object.values(modules("/@modelcontextprotocol/sdk/dist/esm/client/index.js"))
+		.filter((value: any) => typeof value === "function" && typeof value.prototype?.callTool === "function");
+	const transports = Object.values(modules("/@modelcontextprotocol/sdk/dist/esm/client/streamableHttp.js"))
+		.filter((value: any) => typeof value === "function" && typeof value.prototype?.send === "function" && typeof value.prototype?.terminateSession === "function");
+	expect(clients).toHaveLength(1);
+	expect(transports).toHaveLength(1);
+	type InstalledTransport = { close(): Promise<void> };
+	type InstalledClient = Pick<Client, "listTools" | "close"> & { connect(transport: InstalledTransport): Promise<void> };
+	const InstalledClient = clients[0] as new (info: { name: string; version: string }) => InstalledClient;
+	const InstalledTransport = transports[0] as new (url: URL) => InstalledTransport;
+	const client = new InstalledClient({ name: "installed-cursor-bridge-contract", version: "1" });
+	const transport = new InstalledTransport(new URL(url));
+	try { await client.connect(transport); }
+	catch (error) {
+		await client.close().catch(() => undefined);
+		await transport.close().catch(() => undefined);
+		throw error;
+	}
 	return { client, transport };
 }
 
@@ -1186,6 +1217,225 @@ describe("cursor pi tool bridge URL host and port", () => {
 			await client.close().catch(() => undefined);
 			await transport.close().catch(() => undefined);
 			await run.dispose();
+		}
+	});
+
+	it("never sends an IPv6-first installed-SDK MCP capability to an unrelated listener", async () => {
+		const previousOrder = getDefaultResultOrder();
+		const previousAutoSelectFamily = getDefaultAutoSelectFamily();
+		setDefaultResultOrder("ipv6first");
+		setDefaultAutoSelectFamily(false);
+		let interceptedRequests = 0;
+		let interceptedCapability = false;
+		const hostile = createHttpServer((request, response) => {
+			interceptedRequests += 1;
+			interceptedCapability ||= /^\/cursor-pi-tool-bridge\/[^/]+\/mcp$/.test(request.url ?? "");
+			request.resume();
+			response.writeHead(403, { "content-type": "application/json" });
+			response.end(JSON.stringify({ error: "unrelated IPv6 listener" }));
+		});
+		let run: CursorPiToolBridgeRun | undefined;
+		let connection: Awaited<ReturnType<typeof connectInstalledClient>> | undefined;
+		try {
+			expect((await lookup("localhost", { all: true }))[0]?.address).toBe("::1");
+			// Reserve a viable successor range rather than accepting an ephemeral 65535.
+			const first = await findFreeRange(3);
+			await new Promise<void>((resolve, reject) => {
+				hostile.once("error", reject);
+				hostile.listen({ port: first, host: "::1", ipv6Only: true }, resolve);
+			});
+			const registry = createReadRegistry({
+				PI_CURSOR_PI_TOOL_BRIDGE_HOST: "localhost",
+				PI_CURSOR_PI_TOOL_BRIDGE_PORT: `${first}-${first + 2}`,
+			});
+			run = await registry.createRun();
+			// Catch transport failures without exposing the tokenized URL in a failed assertion.
+			connection = await connectInstalledClient(getCursorPiBridgeMcpUrl(run)).catch(() => undefined);
+			expect({ interceptedRequests, interceptedCapability }).toEqual({ interceptedRequests: 0, interceptedCapability: false });
+			expect(connection !== undefined).toBe(true);
+			expect(Number(new URL(getCursorPiBridgeMcpUrl(run)).port)).toBeGreaterThan(first);
+			const listed = await connection!.client.listTools();
+			expect(listed.tools.map((tool) => tool.name)).toEqual(["pi__read"]);
+			// The rejected candidate must not leave its IPv4 half bound.
+			const reclaimed = await holdPort(first);
+			await closeServer(reclaimed);
+		} finally {
+			await connection?.client.close().catch(() => undefined);
+			await connection?.transport.close().catch(() => undefined);
+			await run?.dispose();
+			if (hostile.listening) await new Promise<void>((resolve) => hostile.close(() => resolve()));
+			setDefaultResultOrder(previousOrder);
+			setDefaultAutoSelectFamily(previousAutoSelectFamily);
+		}
+	});
+
+	it("serves concurrent localhost runs on both owned loopback families and releases both", async () => {
+		const registry = createReadRegistry({ PI_CURSOR_PI_TOOL_BRIDGE_HOST: "localhost" });
+		const runs = await Promise.all([registry.createRun(), registry.createRun()]);
+		const port = Number(new URL(getCursorPiBridgeMcpUrl(runs[0]!)).port);
+		try {
+			expect(Number(new URL(getCursorPiBridgeMcpUrl(runs[1]!)).port)).toBe(port);
+			for (const [index, hostname] of ["127.0.0.1", "[::1]"].entries()) {
+				const endpoint = new URL(getCursorPiBridgeMcpUrl(runs[index]!));
+				endpoint.hostname = hostname;
+				const { client, transport } = await connectClient(endpoint.href);
+				try { expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual(["pi__read"]); }
+				finally { await client.close(); await transport.close(); }
+			}
+			await runs[0]!.dispose();
+			expect(registry.getEndpointCount()).toBe(1);
+		} finally { await registry.disposeAll(); }
+		for (const host of ["127.0.0.1", "::1"]) {
+			const server = createNetServer();
+			await new Promise<void>((resolve, reject) => {
+				server.once("error", reject);
+				server.listen({ port, host, ipv6Only: host === "::1" }, resolve);
+			});
+			await closeServer(server);
+		}
+	});
+
+	it.each(["127.0.0.1", "localhost"])("freezes advertised host %s and port until the owned listeners close", async (initialHost) => {
+		const target = await listenOnFreePort();
+		const env: Record<string, string | undefined> = { PI_CURSOR_EXPOSE_BUILTIN_TOOLS: "1", PI_CURSOR_PI_TOOL_BRIDGE_HOST: initialHost };
+		const registry = __testUtils.createRegistry(
+			createBridgePiHarness({ active: ["read"], tools: [createToolInfo("read")] }), env,
+		);
+		let first: CursorPiToolBridgeRun | undefined;
+		try {
+			first = await registry.createRun();
+			const originalPort = new URL(getCursorPiBridgeMcpUrl(first)).port;
+			env.PI_CURSOR_PI_TOOL_BRIDGE_HOST = initialHost === "localhost" ? "127.0.0.1" : "localhost";
+			env.PI_CURSOR_PI_TOOL_BRIDGE_PORT = String(target.port);
+			const second = await registry.createRun();
+			expect(new URL(getCursorPiBridgeMcpUrl(second)).hostname).toBe(initialHost);
+			expect(new URL(getCursorPiBridgeMcpUrl(second)).port).toBe(originalPort);
+			await second.dispose();
+			await first.dispose();
+			await closeServer(target.server);
+			const restarted = await registry.createRun();
+			expect(new URL(getCursorPiBridgeMcpUrl(restarted)).hostname).toBe(env.PI_CURSOR_PI_TOOL_BRIDGE_HOST);
+			expect(new URL(getCursorPiBridgeMcpUrl(restarted)).port).toBe(String(target.port));
+		} finally {
+			await registry.disposeAll();
+			if (target.server.listening) await closeServer(target.server);
+		}
+	});
+
+	it("disposes and removes every failed-start run before rejection and recovers", async () => {
+		const blocker = await listenOnFreePort();
+		const registry = createReadRegistry({ PI_CURSOR_PI_TOOL_BRIDGE_PORT: String(blocker.port) });
+		// Inspect the existing registry state, without adding a production test seam.
+		const retainedRuns = Reflect.get(registry, "runs") as Set<CursorPiToolBridgeRun>;
+		const added = vi.spyOn(retainedRuns, "add");
+		try {
+			for (let attempt = 0; attempt < 3; attempt += 1) {
+				await expect(registry.createRun()).rejects.toThrow(`${blocker.port}-${blocker.port}`);
+				expect(Reflect.get(added.mock.calls.at(-1)![0], "disposed")).toBe(true);
+				expect(retainedRuns.size).toBe(0);
+				expect(registry.getEndpointCount()).toBe(0);
+				expect(registry.getHttpServerAddress()).toBeUndefined();
+			}
+			await closeServer(blocker.server);
+			const run = await registry.createRun();
+			expect(retainedRuns.size).toBe(1);
+			await run.dispose();
+			expect(retainedRuns.size).toBe(0);
+		} finally {
+			await registry.disposeAll();
+			added.mockRestore();
+			if (blocker.server.listening) await closeServer(blocker.server);
+		}
+	});
+
+	it("preserves the original startup exception when failed-run cleanup also rejects", async () => {
+		const registry = createReadRegistry({});
+		const startupError = new Error("original bridge startup failure");
+		const register = vi.spyOn(registry, "registerRun").mockRejectedValueOnce(startupError);
+		const unregister = vi.spyOn(registry, "unregisterRun").mockRejectedValueOnce(new Error("secondary cleanup failure"));
+		try {
+			await expect(registry.createRun()).rejects.toBe(startupError);
+			expect((Reflect.get(registry, "runs") as Set<unknown>).size).toBe(0);
+			expect(unregister).toHaveBeenCalledOnce();
+		} finally { register.mockRestore(); unregister.mockRestore(); await registry.disposeAll(); }
+	});
+
+	it("pins the installed SDK whole-URL MCP policy matcher without minifier IDs", async () => {
+		const modules = await installedCursorModules();
+		const predicates = Object.values(modules("../mcp-core/dist/index.js")).filter((value) =>
+			typeof value === "function" && value.toString().includes("disableAll") && value.toString().includes("allowedMcpServers"));
+		expect(predicates).toHaveLength(1);
+		const allowed = predicates[0] as (server: { url: string }, config: {
+			allowedMcpServers: Array<{ serverUrl: string }>;
+			allowUserOverrideMcpServers: boolean;
+		}) => boolean;
+		const config = { allowedMcpServers: [{ serverUrl: "http://localhost:800*/mcp" }], allowUserOverrideMcpServers: false };
+		for (const [host, port, expected] of [
+			["localhost", 8000, true], ["localhost", 8009, true],
+			["localhost", 8010, false], ["127.0.0.1", 8000, false],
+		] as const) {
+			expect(allowed({ url: `http://${host}:${port}/cursor-pi-tool-bridge/non-secret-fixture/mcp` }, config)).toBe(expected);
+		}
+	});
+
+	it("fails closed on IPv6-only fixed-port exhaustion and releases the IPv4 half", async () => {
+		const first = await findFreeRange(1);
+		const blocker = createNetServer();
+		await new Promise<void>((resolve, reject) => {
+			blocker.once("error", reject);
+			blocker.listen({ port: first, host: "::1", ipv6Only: true }, resolve);
+		});
+		const registry = createReadRegistry({ PI_CURSOR_PI_TOOL_BRIDGE_HOST: "localhost", PI_CURSOR_PI_TOOL_BRIDGE_PORT: String(first) });
+		try {
+			for (let attempt = 0; attempt < 2; attempt += 1) {
+				await expect(registry.createRun()).rejects.toThrow(`${first}-${first}`);
+				expect((Reflect.get(registry, "runs") as Set<unknown>).size).toBe(0);
+				expect(registry.getEndpointCount()).toBe(0);
+				const reclaimed = await holdPort(first);
+				await closeServer(reclaimed);
+			}
+		} finally { await registry.disposeAll(); await closeServer(blocker); }
+	});
+
+	it.each([false, true])("rolls back unavailable IPv6 without masking its error (cleanup rejects: %s)", async (cleanupRejects) => {
+		const port = await findFreeRange(1);
+		const bindError = Object.assign(new Error("IPv6 unavailable contract"), { code: "EAFNOSUPPORT" });
+		const registry = createReadRegistry({ PI_CURSOR_PI_TOOL_BRIDGE_HOST: "localhost", PI_CURSOR_PI_TOOL_BRIDGE_PORT: String(port) });
+		const originalListen = NetServer.prototype.listen;
+		const listen = vi.spyOn(NetServer.prototype, "listen").mockImplementation(function (this: NetServer, ...args: unknown[]) {
+			if ((args[0] as { host?: string })?.host === "::1") {
+				queueMicrotask(() => this.emit("error", bindError));
+				return this;
+			}
+			return Reflect.apply(originalListen, this, args) as NetServer;
+		});
+		const originalClose = HttpServer.prototype.close;
+		const close = cleanupRejects ? vi.spyOn(HttpServer.prototype, "close").mockImplementationOnce(function (this: HttpServer, callback?: (error?: Error) => void) {
+			return originalClose.call(this, () => callback?.(new Error("secondary rollback failure")));
+		}) : undefined;
+		try {
+			await expect(registry.createRun()).rejects.toBe(bindError);
+			expect((Reflect.get(registry, "runs") as Set<unknown>).size).toBe(0);
+			expect(registry.getHttpServerAddress()).toBeUndefined();
+			const reclaimed = await holdPort(port);
+			await closeServer(reclaimed);
+		} finally { listen.mockRestore(); close?.mockRestore(); await registry.disposeAll(); }
+	});
+
+	it("keeps a live sibling endpoint usable when a new run fails during registration", async () => {
+		const registry = createReadRegistry({ PI_CURSOR_PI_TOOL_BRIDGE_HOST: "localhost" });
+		const survivor = await registry.createRun();
+		const { client, transport } = await connectClient(getCursorPiBridgeMcpUrl(survivor));
+		const originalError = new Error("new sibling registration failed");
+		const register = vi.spyOn(registry, "registerRun").mockRejectedValueOnce(originalError);
+		try {
+			await expect(registry.createRun()).rejects.toBe(originalError);
+			expect(registry.getEndpointCount()).toBe(1);
+			expect((Reflect.get(registry, "runs") as Set<unknown>).size).toBe(1);
+			expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual(["pi__read"]);
+		} finally {
+			register.mockRestore();
+			await client.close(); await transport.close(); await registry.disposeAll();
 		}
 	});
 
