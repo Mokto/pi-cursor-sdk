@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createRequire, registerHooks } from "node:module";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 import { after, afterEach } from "node:test";
@@ -43,6 +43,12 @@ export async function seedOfflineCatalog(agentDir) {
 
 export async function concurrentFixture(t, run) {
   const root = await mkdtemp(join(tmpdir(), "cursor-native-owners-"));
+  const evidenceDirectory = process.env.PI_CURSOR_TEST_EVIDENCE_DIR;
+  if (evidenceDirectory) {
+    writeRawTestEvidence(evidenceDirectory, `fixture-root-${basename(root)}.json`, JSON.stringify({
+      root, retained: true, host: process.env.PI_CURSOR_TEST_HOST ?? "@earendil-works/pi-coding-agent",
+    }, null, 2));
+  }
   const previousEnv = { ...process.env };
   const sessions = [];
   const errors = [];
@@ -115,7 +121,7 @@ export async function concurrentFixture(t, run) {
       globalThis.fetch = originalFetch;
       for (const key of Object.keys(process.env)) if (!(key in previousEnv)) delete process.env[key];
       Object.assign(process.env, previousEnv);
-      await rm(root, { recursive: true, force: true });
+      if (!evidenceDirectory) await rm(root, { recursive: true, force: true });
     }
   }
 }

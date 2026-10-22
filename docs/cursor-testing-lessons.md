@@ -8,6 +8,12 @@ This document records maintainer testing lessons for `pi-cursor-sdk`. It complem
 
 For a **minimal one-session dogfood pass** (baseline env, one native + one bridge call, JSONL ID patterns, bootstrap manifest, edit diff card), use the [Cursor dogfood checklist](./cursor-dogfood-checklist.md) only when its selected changed behavior needs new live proof; do not follow it with a full paid matrix by default.
 
+## Durable store identity versus SDK pathname
+
+Persisted `storeIdentity.stateRoot` is a durable identity, while the SQLite-open boundary passes `toNamespacedPath(stateRoot)` to the SDK. On Windows, the SDK pathname can therefore have the `\\?\` prefix without changing the stored identity. Native resume tests must compare the SDK value exactly with `toNamespacedPath(handle.storeIdentity.stateRoot)` and verify both existing directories with `realpath`; do not strip arbitrary prefixes or weaken the stable-handle/live-sibling assertions.
+
+For native harness diagnostics, set `PI_CURSOR_TEST_EVIDENCE_DIR` before starting the test and use a fresh owned temp directory. Evidence-configured `concurrentFixture` runs retain their original fixture roots and write `fixture-root-*.json` metadata before execution; copied JSONL does not authorize deleting the original JSONL or its ancestors. The targeted macOS/Windows native ownership CI step runs the whole ownership test file, avoiding a name filter that could silently match no cases, and places both original roots and copied evidence under the existing `native-host` artifact directory. Runs without evidence configuration keep their existing teardown behavior.
+
 ## Core lesson: integration-shaped bugs beat unit mocks
 
 The native replay `Tool grep not found` failure was integration-shaped, not unit-shaped:
