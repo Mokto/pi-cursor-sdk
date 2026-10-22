@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Mark the native-tool opt-out and `/cursor-abort` examples as requiring the post-0.5.3 implementation from #372. Published npm 0.5.3 ignores that flag and lacks the command; its version label must not be mistaken for native-tool enforcement (#368).
+
 ### Added
 
 - Add `/cursor-abort` as an explicit session-scoped release path for a pending local Cursor run after a native-tool policy mismatch. Ordinary mismatch remains restorable and never cancels implicitly; idle Pi abort has no active signal after the error has settled. Explicit active provider abort now also releases its captured scope's old pending run before preparation. Recovery never delivers stale Pi results, automatically sends a replacement turn, releases sibling scopes, or undoes already-executed work.
