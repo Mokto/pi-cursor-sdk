@@ -147,7 +147,7 @@ describe("installed Pi provider context boundary", () => {
 		expect(mockedCreate.mock.calls[0][0]?.mcpServers?.pi_tools).toBeDefined();
 		const text = sdkSend.mock.calls[0][0].text;
 		expect(text).toContain("For exposed pi bridge tools");
-		expect(text).toContain("prefer pi__mcp for MCP work and pi__subagent for delegation");
+		expect(text).toContain("prefer matching exposed pi__* tools using their listed names, schemas, and prompt guidelines");
 		expect(text).not.toContain("Use pi__cursor_ask_question");
 		expect(text).toContain("Pi bridge: call exposed pi__* MCP names");
 		expect(text).toContain("pi__audit_tool");

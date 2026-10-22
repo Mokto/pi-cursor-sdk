@@ -59,7 +59,7 @@ For an advertised-but-unused `pi__subagent`, first identify the active provider/
 Default behavior:
 
 - Cursor host tools handle files, shell, grep, and edits.
-- When exposed, `pi__mcp` is preferred for MCP work and `pi__subagent` is preferred for delegation. Cursor-configured MCP and Cursor-native subagents are fallbacks when the matching pi tool is not exposed or is unavailable.
+- Prefer exposed `pi__*` tools for the capabilities described by their current schemas and prompt guidelines, including delegation or MCP work. Use Cursor-configured MCP or Cursor-native subagents only when no matching exposed Pi tool is available; do not assume a particular delegation tool name is registered.
 - The pi bridge exposes **active pi tools** as `pi__*` MCP names when `PI_CURSOR_PI_TOOL_BRIDGE` is enabled (default on).
 - Overlapping pi builtins (`read`, `bash`, `write`, `edit`, `grep`, `find`, `ls`) are **hidden** from the bridge unless `PI_CURSOR_EXPOSE_BUILTIN_TOOLS=1`.
 
