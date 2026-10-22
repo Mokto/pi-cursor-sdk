@@ -503,7 +503,7 @@ describe("streamCursor prompt and model config", () => {
 		expect(sentMessage.text).not.toContain("Bridged pi tools:");
 		expect(sentMessage.text).not.toContain("Pi bridge");
 		expect(sentMessage.text).not.toContain("Use pi__cursor_ask_question");
-		expect(sentMessage.text).not.toContain("prefer pi__mcp");
+		expect(sentMessage.text).not.toContain("prefer matching exposed pi__* tools");
 	});
 
 	it("caches SDK checkpoint context windows after successful runs", async () => {

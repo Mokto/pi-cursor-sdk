@@ -61,16 +61,37 @@ describe("streamCursor session agent", () => {
 		expect(mockDispose).toHaveBeenCalledTimes(1);
 	});
 
-	it("reuses the session agent and keeps bridge guidance on follow-up turns", async () => {
+	it("reuses the session agent and prefers current registry capabilities with real MCP catalog descriptions", async () => {
+		process.env.PI_CURSOR_TOOL_MANIFEST = "1";
 		const mockDispose = vi.fn().mockResolvedValue(undefined);
-		registerBridgeForProviderTest({
-			active: ["mcp", "subagent"],
-			tools: [
-				createTestToolInfo("mcp", Type.Object({}), "Call an MCP server"),
-				createTestToolInfo("subagent", Type.Object({}), "Delegate to a pi subagent"),
-			],
-		});
+		// Owner-deployment registry fixtures, not official Pi builtins or a claim
+		// about native delegation schemas. The bridge must retain supplied metadata.
+		const tools = [
+			createTestToolInfo("delegate", Type.Object({ task: Type.String() }), "Delegate work through Pi", ["Use the registered delegation contract."]),
+			createTestToolInfo("agent_runs", Type.Object({ runId: Type.String() }), "Inspect Pi agent runs", ["Inspect the existing run before requesting more work."]),
+		];
+		registerBridgeForProviderTest({ active: tools.map((tool) => tool.name), tools });
+		let catalogChecked = false;
 		const mockSend = vi.fn().mockImplementation(async (message: { text?: string }) => {
+			if (!catalogChecked) {
+				const { client, transport } = await connectMcpClient(getPiToolsMcpUrlFromAgentCreateOptions(getCreatedAgentOptions()));
+				try {
+					const listed = await client.listTools();
+					expect(listed.tools.map((tool) => tool.name)).toEqual(["pi__delegate", "pi__agent_runs"]);
+					for (const [index, tool] of tools.entries()) {
+						expect(listed.tools[index].inputSchema).toEqual(tool.parameters);
+						expect(listed.tools[index].description).toContain(tool.description);
+						expect(listed.tools[index].description).toContain(tool.promptGuidelines![0]);
+						expect(listed.tools[index].description).toContain(`Call MCP name ${listed.tools[index].name} (pi tool: ${tool.name}).`);
+					}
+					catalogChecked = true;
+				} finally {
+					await client.close();
+					await transport.close();
+				}
+			}
+			expect(message.text).toContain("For MCP work and delegation, prefer matching exposed pi__* tools using their listed names, schemas, and prompt guidelines");
+			expect(message.text).not.toMatch(/pi__subagent|pi__mcp\b/);
 			return asMockCursorRun({
 				id: "run-1",
 				agentId: "agent-1",
@@ -88,7 +109,8 @@ describe("streamCursor session agent", () => {
 		});
 
 		const firstContext = makeContext();
-		await collectEvents(streamCursor(makeModel(), firstContext, { apiKey: "test-key" }));
+		const firstEvents = await collectEvents(streamCursor(makeModel(), firstContext, { apiKey: "test-key" }));
+		expect(firstEvents.at(-1), JSON.stringify(firstEvents.at(-1))).toMatchObject({ type: "done" });
 		expect(mockDispose).not.toHaveBeenCalled();
 
 		const followUpContext = makeContext();
@@ -97,7 +119,8 @@ describe("streamCursor session agent", () => {
 			{ role: "assistant", content: [{ type: "text", text: "Hi there." }], api: "cursor-sdk", provider: "cursor", model: "test-model", usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } }, stopReason: "stop", timestamp: 2 },
 			{ role: "user", content: "Follow up", timestamp: 3 },
 		];
-		await collectEvents(streamCursor(makeModel(), followUpContext, { apiKey: "test-key" }));
+		const followUpEvents = await collectEvents(streamCursor(makeModel(), followUpContext, { apiKey: "test-key" }));
+		expect(followUpEvents.at(-1), JSON.stringify(followUpEvents.at(-1))).toMatchObject({ type: "done" });
 
 		expect(mockDispose).not.toHaveBeenCalled();
 		expect(mockedCreate).toHaveBeenCalledTimes(1);
@@ -106,10 +129,10 @@ describe("streamCursor session agent", () => {
 		const secondPrompt = mockSend.mock.calls[1]?.[0] as { text?: string };
 		expect(firstPrompt.text).toContain("Cursor SDK tool boundary:");
 		expect(firstPrompt.text).toContain("User: Hello");
-		expect(firstPrompt.text).toContain("prefer pi__mcp for MCP work and pi__subagent for delegation");
+		expect(firstPrompt.text).toContain("pi__agent_runs, pi__delegate");
 		expect(secondPrompt.text).toContain("User: Follow up");
 		expect(secondPrompt.text).not.toContain("User: Hello");
-		expect(secondPrompt.text).toContain("prefer pi__mcp for MCP work and pi__subagent for delegation");
+		expect(secondPrompt.text).toContain("prefer matching exposed pi__* tools");
 	});
 
 	it("recreates the session agent when context diverges and sends a full bootstrap prompt", async () => {
