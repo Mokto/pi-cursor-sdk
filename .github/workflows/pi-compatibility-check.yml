@@ -112,6 +112,15 @@ jobs:
           PI_COMPAT_EVIDENCE_DIR: ${{ runner.temp }}/native-host
         run: node scripts/ci-compatibility.mjs --automation automation --official-version "$OFFICIAL_VERSION" --select-only
       - run: npm run build
+      - name: Check native durable resume and sibling ownership
+        env:
+          PI_CURSOR_TEST_EVIDENCE_DIR: ${{ runner.temp }}/native-host/same-file-resume
+          TMPDIR: ${{ runner.temp }}/native-host
+          TMP: ${{ runner.temp }}/native-host
+          TEMP: ${{ runner.temp }}/native-host
+        run: |
+          node -e "require('node:fs').mkdirSync(process.env.TMPDIR, { recursive: true })"
+          node --test test/native-cursor-ownership.test.mjs
       - run: node -e "require('node-pty')"
       - run: npm run check:platform-smoke
       - run: npm test -- --testTimeout=15000
@@ -122,5 +131,6 @@ jobs:
         with:
           name: cursor-native-host-${{ matrix.os }}
           path: ${{ runner.temp }}/native-host
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 3
