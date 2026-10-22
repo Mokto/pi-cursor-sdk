@@ -196,6 +196,10 @@ describe("extension registration and discovery", () => {
 			expect.objectContaining({ description: expect.stringContaining("Refresh the live Cursor model catalog") }),
 		);
 		expect(pi.registerCommand).toHaveBeenCalledWith(
+			"cursor-abort",
+			expect.objectContaining({ description: expect.stringContaining("pending local Cursor run") }),
+		);
+		expect(pi.registerCommand).toHaveBeenCalledWith(
 			"cursor-refresh-config",
 			expect.objectContaining({ description: expect.stringContaining("Refresh filesystem Cursor config") }),
 		);
