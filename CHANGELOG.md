@@ -1,10 +1,10 @@
 # Changelog
 
+**Release preparation is not a publication receipt:** confirm the exact version, source and artifact integrity in npm/GitHub publication records before relying on availability. No issue is closed by preparation alone.
+
 ## Unreleased
 
 ## 0.5.4
-
-**Release preparation is not a publication receipt:** confirm the exact version, source and artifact integrity in npm/GitHub publication records before relying on availability. No issue is closed by preparation alone.
 
 ### Fixed
 
