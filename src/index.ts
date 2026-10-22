@@ -16,6 +16,7 @@ import { registerCursorAgentsContextDedup } from "./cursor-agents-context-regist
 import { registerCursorOverflowNormalization } from "./cursor-provider-overflow.js";
 import { registerCursorSdkSessionProcessErrorGuard } from "./cursor-sdk-process-error-guard.js";
 import { installCursorSdkProcessOutputFilter } from "./cursor-sdk-output-filter.js";
+import { cursorLiveRuns } from "./cursor-provider-live-run-drain.js";
 import { prepareCursorSessionForCompaction } from "./cursor-session-compaction-prep.js";
 import { registerCursorUsageLedger } from "./cursor-usage-ledger.js";
 import { registerCursorUsageCommand } from "./cursor-usage-command.js";
@@ -43,6 +44,21 @@ export default async function (pi: CursorExtensionApi) {
 	registerCursorSessionScope(pi);
 	registerCursorUsageLedger(pi);
 	registerCursorUsageCommand(pi);
+	pi.registerCommand("cursor-abort", {
+		description: "Abort this session's pending local Cursor run without undoing completed work",
+		handler: async (_args, ctx) => {
+			const run = cursorLiveRuns.getActiveForScope(getCursorSessionScopeSnapshot(pi).scopeKey);
+			if (run && !run.disposed) {
+				if (!ctx.isIdle() && ctx.model?.provider === "cursor") ctx.abort();
+				await cursorLiveRuns.release(run);
+			}
+			const message = run
+				? "Pending local Cursor run released. Retry under the current policy; already-executed work was not undone."
+				: "No pending local Cursor run in this session.";
+			if (ctx.hasUI) ctx.ui.notify(message, "info");
+			else process.stderr.write(`${message}\n`);
+		},
+	});
 	let fallbackIssue: CursorModelFallbackIssue | undefined;
 	const registerCursorProvider = registerCursorProviderBinding(pi);
 	const setFallbackWarning = registerCursorFallbackIssueWarning(pi);

@@ -465,7 +465,7 @@ export async function drainExistingCursorLiveRunBeforeSend(
 				// Check under the drain lease, before consuming/delivering Pi results:
 				// resolving a bridge waiter can resume the SDK's old tool surface.
 				if ((run.nativeToolsEnabled !== false) !== nativeToolsEnabled) {
-					throw new Error("Cursor native tool policy changed while a local run is pending; restore the prior policy to finish it or abort the pending run before retrying.");
+					throw new Error("Cursor native tool policy changed while a local run is pending; restore the prior policy to finish it or run /cursor-abort before retrying. Already-executed work is not undone.");
 				}
 				const consumed = cursorLiveRuns.consumeToolResults(run, context, getCursorNativeReplayIdFromToolCallId);
 				await run.bridgeRun?.resolveToolResults(consumed.toolResults);

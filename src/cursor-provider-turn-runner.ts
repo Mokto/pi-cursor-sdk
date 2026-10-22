@@ -1,6 +1,6 @@
 import { assertCursorNativeToolsRuntime, resolveCursorNativeToolsEnabled } from "./cursor-native-tools.js";
 import { CursorLiveRunAbortError } from "./cursor-live-run-coordinator.js";
-import { drainExistingCursorLiveRunBeforeSend } from "./cursor-provider-live-run-drain.js";
+import { cursorLiveRuns, drainExistingCursorLiveRunBeforeSend } from "./cursor-provider-live-run-drain.js";
 import { installCursorSdkProcessErrorGuard } from "./cursor-sdk-process-error-guard.js";
 import type { CursorRuntime } from "./cursor-config.js";
 import { CursorSdkEventDebugSink } from "./cursor-sdk-event-debug.js";
@@ -178,6 +178,12 @@ export class CursorProviderTurnRunner {
 				displayOnlyTraceBlock: finalized.displayOnlyTraceBlock,
 			});
 		} catch (error) {
+			// This body owns the session turn lease; a queued request aborted before
+			// entry must not release another request's run in handleOuterCatch().
+			if (!prepared && (error instanceof CursorLiveRunAbortError || options?.signal?.aborted)) {
+				const pending = cursorLiveRuns.getActiveForScope(this.params.scope.scopeKey);
+				if (pending && !pending.disposed) await cursorLiveRuns.release(pending);
+			}
 			await runFinalizer.applyTerminalEvent({ kind: "error", prepared: started ?? prepared, error });
 		} finally {
 			await runFinalizer.cleanup(prepared, sendResult, liveCompletion);

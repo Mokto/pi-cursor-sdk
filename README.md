@@ -60,6 +60,8 @@ Cursor controls file tools, shell commands, edits, and configured MCP servers. T
 
 `PI_CURSOR_NATIVE_TOOLS` accepts `0`, `false`, `off`, `none`, `no`, and `disabled` as off (trimmed, case-insensitive); unset, blank, or unrecognized values keep native tools **on**.
 
+A policy mismatch preserves the pending local run: restore its prior policy to finish, or use `/cursor-abort` to explicitly release this session's pending local run before retrying. The command also stops an active owning Cursor Pi turn. Pi's normal abort only signals an active Pi turn; after the mismatch error has settled, it does not reach the old Cursor waiter. Neither recovery path undoes already-executed work.
+
 Local runs leave Cursor auto-review and sandboxing off by default. Read the [safety controls and hook limits](docs/reference.md#cursor-local-agent-config-and-safety-controls) before you depend on those controls or Cursor hooks.
 
 ```bash
