@@ -22,8 +22,11 @@ describe("Cursor SDK presentation boundary", () => {
 		mkdirSync(join(root, "outside-é"));
 		symlinkSync(join(root, "outside-é"), join(home, ".cursor/plugins/local/outside"), process.platform === "win32" ? "junction" : "dir");
 		let restore: (() => void) | undefined;
+		const previousTerm = process.env.TERM;
+		process.env.TERM = "dumb"; // adversarial ambient input must not defeat either selected color mode
 		try {
 			const sdk = await installedBootstrapEmitters(colors); // bind before interception
+			expect(process.env.TERM).toBe("dumb");
 			await sdk.inventory();
 			expect(Array.from(await sdk.plugins(home))).toEqual([]);
 			expect(sdk.readerCalls()).toBe(0);
@@ -88,7 +91,10 @@ describe("Cursor SDK presentation boundary", () => {
 			expect(Buffer.concat(output.stderr)).toEqual(plugin);
 			await sdk.inventory();
 			expect(Buffer.concat(output.stdout).toString()).toContain("managed_skills.startup_inventory");
-		} finally { restore?.(); output.restore(); rmSync(root, { recursive: true, force: true }); }
+		} finally {
+			if (previousTerm === undefined) delete process.env.TERM; else process.env.TERM = previousTerm;
+			restore?.(); output.restore(); rmSync(root, { recursive: true, force: true });
+		}
 	});
 
 	it("matches installed unsupported/unknown Claude event templates without enumerating future names", async () => {

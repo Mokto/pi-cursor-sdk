@@ -2,9 +2,16 @@
 
 ## Unreleased
 
+## 0.5.4
+
+**Release preparation is not a publication receipt:** confirm the exact version, source and artifact integrity in npm/GitHub publication records before relying on availability. No issue is closed by preparation alone.
+
 ### Fixed
 
-- Mark the native-tool opt-out and `/cursor-abort` examples as requiring the post-0.5.3 implementation from #372. Published npm 0.5.3 ignores that flag and lacks the command; its version label must not be mistaken for native-tool enforcement (#368).
+- Identify 0.5.4 as the first candidate containing the native-tool opt-out and `/cursor-abort` from #372, and require an exact publication/installation check. Published npm 0.5.3 ignores that flag and lacks the command; a development version label is not proof of enforcement (#368).
+- Keep verified SDK bootstrap output filtered across detached rule/skill work and asynchronous reload gaps with a process-lifetime, versioned sink lease. Preserve unrelated output and expose bounded owner-scoped capability/hook warnings; unknown output is not universally suppressed (#367).
+- Isolate native auth/catalog fixtures from the official host's file-backed startup refresh-admission race. Use matching in-memory catalog state for extension-owned assertions; this is not an official-host startup repair (#357).
+- Skip credential-URL regex scans when required markers are absent, preserving the existing matching/redaction contract, including percent-encoded cases. Inputs containing both markers retain the existing regex behavior; no universal processing bound is claimed (#371).
 
 ### Added
 
@@ -19,6 +26,17 @@
 - Prefer the currently exposed Pi tool capabilities, schemas and prompt guidelines instead of hardcoded historical MCP/delegation names. Dynamic registry mapping remains unchanged; this is not qualification of the original Windows bridge report (#206).
 - Rewrite the README around installation and everyday use, add a diagram of Cursor inside Pi, and move detailed configuration and maintainer procedures into linked reference pages.
 - Align locked development Pi snapshots and their resolved Pi cohort to 1.1.0 ([#353](https://github.com/fitchmultz/pi-cursor-sdk/pull/353)). This is development-only maintenance, not a user runtime Pi upgrade or a new npm publication. Node 24+, official Pi 0.87.1+, optional wildcard Pi/TypeBox peers, and exact unbundled Cursor SDK 1.0.37 remain unchanged; published 0.5.3 and historical qualification evidence retain their original source/version attribution.
+- Consolidate redundant tests and unused internal exports/wrappers while retaining native, installed-SDK and persistence boundary owners (#360, #363). Improve fixture contracts for user/custom start events without widening runtime APIs (#361). Make installed-SDK bootstrap-printer fixtures select and restore their terminal environment even under `TERM=dumb`, preserving ANSI and confinement assertions.
+- Use the reviewed automatic npm release workflow: an intentional versioned PR merged to main triggers qualification and publication without a new approval step. This candidate does not change publisher policy, authentication, protections or workflow pins (#362).
+
+### Security
+
+- Include the development-only Vite 8.3.1 → 8.3.4 lockfile update already merged in #369; no release-time dependency upgrade is added.
+
+### Verification and limits
+
+- The native-tool opt-out is the supported LOCAL SDK MCP-only tool surface, not interception of native replay or an OS sandbox. Configured MCP remains unless setting sources are narrowed, and permitted Pi/MCP tools can execute arbitrary work. Defaults and existing LOCAL text-only summary isolation remain unchanged; unsupported Cloud opt-out fails closed. No paid Cloud campaign is part of this release.
+- Runtime/source checks, package controls, catalog metadata, current-host offline CI and publication are distinct evidence. Preserve retained proof at its actual SDK/host/source identity. No original #173 hook rewrite, #206 Windows bridge readiness, #233 embedded loader, #247 idle recovery, #257 model narration or #339 signal-sender resolution is inferred from this candidate.
 
 ## 0.5.3 - 2026-10-07
 

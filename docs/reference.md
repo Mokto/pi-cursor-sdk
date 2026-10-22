@@ -49,7 +49,7 @@ If pi started without a key, run `/cursor-refresh-models` after `/login` to refr
 ## Requirements
 
 - Node.js 24+
-- pi-cursor-sdk 0.5.3 requires official Pi 0.87.1 or later. The latest stable official Pi and current `fitchmultz/pi` main are required compatibility targets, resolved once per workflow run; locked development Pi packages are reproducible snapshots, not validation targets
+- This package requires official Pi 0.87.1 or later. The latest stable official Pi and current `fitchmultz/pi` main are required compatibility targets, resolved once per workflow run; locked development Pi packages are reproducible snapshots, not validation targets
 - optional Pi and TypeBox peer metadata uses `"*"` ranges per Pi package guidance
 - a Cursor SDK API key saved through `/login`, available as `CURSOR_API_KEY`, or passed with pi's `--api-key`
 
@@ -552,7 +552,7 @@ Overlapping built-in pi tools (`read`, `bash`, `write`, `edit`, `grep`, `find`, 
 
 Cursor-native tool replay is separate from the bridge. Replay cards are display-only recorded Cursor SDK activity. They never re-run Cursor-side commands, reapply Cursor edits, call MCP servers, or mutate pi state. See [Cursor native tool replay](./cursor-native-tool-replay.md).
 
-**Availability:** `PI_CURSOR_NATIVE_TOOLS` and `/cursor-abort` require the post-0.5.3 implementation from [#372](https://github.com/fitchmultz/pi-cursor-sdk/pull/372), or a release whose changelog includes it. Published npm **0.5.3** ignores the flag and does not register the command. Development snapshots can retain a published version label, so that label alone is not evidence that the restriction exists. Do not rely on these controls until the installed source/release includes them.
+**Availability:** `PI_CURSOR_NATIVE_TOOLS` and `/cursor-abort` require **0.5.4 or later**, including [#372](https://github.com/fitchmultz/pi-cursor-sdk/pull/372). Source checkouts preparing 0.5.4 remain candidates until exact publication records exist; the version bump is not proof of publication. Verify exact npm/GitHub publication records and the installed artifact before relying on availability. Published **0.5.3 ignores the flag and does not register the command**. Development version labels alone do not prove that a control exists.
 
 Pi `tool_call` hooks cannot govern native Cursor execution: replay arrives after the original work. Hiding replay or disabling the bridge does not disable native tools. On a supporting revision, `PI_CURSOR_NATIVE_TOOLS=0` instead selects public SDK `tools: ["mcp"]` for ordinary LOCAL create and resume, excluding every other main tool including native task/subagents. Only the opted-out policy changes pooled/durable/resume identity; defaults remain unchanged. It is captured before acquisition; a pending opposite-policy run rejects continuation before consuming/delivering Pi results. Restore its prior policy to finish it, or run `/cursor-abort` to explicitly release that session's pending local run before retrying; ordinary mismatch never cancels it automatically. Pi's normal abort only signals an active Pi turn, so an idle abort after the error has settled cannot reach the old Cursor waiter. A real active provider abort, including a signal already aborted before preparation, releases its exact scoped pending run. The command sends no model turn; when its owned pending run has an active Cursor Pi turn, it also calls that turn's public abort before release. It does not abort a non-Cursor Pi turn, touch sibling sessions or Cloud agents, or undo already-executed work. Cloud rejects the opt-out before SDK/lifecycle side effects; isolated text-only LOCAL summaries keep `tools: []`. The flag uses the canonical boolean parser (off: `0`, `false`, `off`, `none`, `no`, `disabled`; on: `1`, `true`, `on`, `yes`, `enabled`; trim/case-insensitive; unknown/blank/unset means default on). MCP-only retains ambient Cursor MCP unless setting sources are disabled; it is not a sandbox or OS security boundary, and a permitted Pi/MCP tool can itself execute arbitrary work.
 
@@ -561,7 +561,7 @@ Footer display control: `PI_CURSOR_FOOTER=0` hides the Cursor status without hid
 Native tool and bridge controls:
 
 ```bash
-# Requires the post-0.5.3 implementation above; not published npm 0.5.3.
+# Requires 0.5.4+ containing #372; verify publication/installation (0.5.3 ignores the flag).
 # MCP-only ordinary LOCAL agents; no native host tools or task/subagents.
 # Builtins stay hidden unless explicitly exposed; ambient MCP needs a separate settings control.
 PI_CURSOR_NATIVE_TOOLS=0 PI_CURSOR_EXPOSE_BUILTIN_TOOLS=1 PI_CURSOR_SETTING_SOURCES=none pi --model cursor/grok-4.6
