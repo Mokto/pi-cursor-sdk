@@ -1,6 +1,6 @@
 import type { ModelListItem } from "@cursor/sdk";
 
-// Generated with @cursor/sdk@1.0.37 from 46 Cursor models.
+// Generated with @cursor/sdk@1.0.37 from 48 Cursor models.
 // Refresh with: npm run refresh:cursor-snapshots -- --write
 // Do not add secrets; this file stores public model metadata only.
 export const FALLBACK_MODEL_ITEMS = [
@@ -6519,6 +6519,60 @@ export const FALLBACK_MODEL_ITEMS = [
 		]
 	},
 	{
+		id: "gemini-4-argon",
+		displayName: "Gemini 4 Argon",
+		parameters: [
+			{
+				id: "reasoning_effort",
+				displayName: "Effort",
+				values: [
+					{
+						value: "low",
+						displayName: "Low"
+					},
+					{
+						value: "medium",
+						displayName: "Medium"
+					},
+					{
+						value: "high",
+						displayName: "High"
+					}
+				]
+			}
+		],
+		variants: [
+			{
+				params: [
+					{
+						id: "reasoning_effort",
+						value: "low"
+					}
+				],
+				displayName: "Gemini 4 Argon Low"
+			},
+			{
+				params: [
+					{
+						id: "reasoning_effort",
+						value: "medium"
+					}
+				],
+				displayName: "Gemini 4 Argon Medium",
+				isDefault: true
+			},
+			{
+				params: [
+					{
+						id: "reasoning_effort",
+						value: "high"
+					}
+				],
+				displayName: "Gemini 4 Argon High"
+			}
+		]
+	},
+	{
 		id: "glm-5.2",
 		displayName: "GLM 5.2",
 		parameters: [
@@ -10155,6 +10209,215 @@ export const FALLBACK_MODEL_ITEMS = [
 					}
 				],
 				displayName: "Muse Spark 1.3"
+			}
+		]
+	},
+	{
+		id: "muse-wonder-1.0",
+		displayName: "Muse Wonder",
+		parameters: [
+			{
+				id: "context",
+				displayName: "Context",
+				values: [
+					{
+						value: "300k",
+						displayName: "300K"
+					},
+					{
+						value: "1m",
+						displayName: "1M"
+					}
+				]
+			},
+			{
+				id: "reasoning_effort",
+				displayName: "Reasoning",
+				values: [
+					{
+						value: "minimal",
+						displayName: "Minimal"
+					},
+					{
+						value: "low",
+						displayName: "Low"
+					},
+					{
+						value: "medium",
+						displayName: "Medium"
+					},
+					{
+						value: "high",
+						displayName: "High"
+					},
+					{
+						value: "xhigh",
+						displayName: "Extra High"
+					},
+					{
+						value: "max",
+						displayName: "Max"
+					}
+				]
+			}
+		],
+		variants: [
+			{
+				params: [
+					{
+						id: "context",
+						value: "300k"
+					},
+					{
+						id: "reasoning_effort",
+						value: "minimal"
+					}
+				],
+				displayName: "Muse Wonder  Minimal"
+			},
+			{
+				params: [
+					{
+						id: "context",
+						value: "300k"
+					},
+					{
+						id: "reasoning_effort",
+						value: "low"
+					}
+				],
+				displayName: "Muse Wonder  Low"
+			},
+			{
+				params: [
+					{
+						id: "context",
+						value: "300k"
+					},
+					{
+						id: "reasoning_effort",
+						value: "medium"
+					}
+				],
+				displayName: "Muse Wonder  Medium"
+			},
+			{
+				params: [
+					{
+						id: "context",
+						value: "300k"
+					},
+					{
+						id: "reasoning_effort",
+						value: "high"
+					}
+				],
+				displayName: "Muse Wonder  High"
+			},
+			{
+				params: [
+					{
+						id: "context",
+						value: "300k"
+					},
+					{
+						id: "reasoning_effort",
+						value: "xhigh"
+					}
+				],
+				displayName: "Muse Wonder  Extra High"
+			},
+			{
+				params: [
+					{
+						id: "context",
+						value: "300k"
+					},
+					{
+						id: "reasoning_effort",
+						value: "max"
+					}
+				],
+				displayName: "Muse Wonder  Max"
+			},
+			{
+				params: [
+					{
+						id: "context",
+						value: "1m"
+					},
+					{
+						id: "reasoning_effort",
+						value: "minimal"
+					}
+				],
+				displayName: "Muse Wonder 1M Minimal"
+			},
+			{
+				params: [
+					{
+						id: "context",
+						value: "1m"
+					},
+					{
+						id: "reasoning_effort",
+						value: "low"
+					}
+				],
+				displayName: "Muse Wonder 1M Low"
+			},
+			{
+				params: [
+					{
+						id: "context",
+						value: "1m"
+					},
+					{
+						id: "reasoning_effort",
+						value: "medium"
+					}
+				],
+				displayName: "Muse Wonder 1M Medium"
+			},
+			{
+				params: [
+					{
+						id: "context",
+						value: "1m"
+					},
+					{
+						id: "reasoning_effort",
+						value: "high"
+					}
+				],
+				displayName: "Muse Wonder 1M High"
+			},
+			{
+				params: [
+					{
+						id: "context",
+						value: "1m"
+					},
+					{
+						id: "reasoning_effort",
+						value: "xhigh"
+					}
+				],
+				displayName: "Muse Wonder 1M Extra High",
+				isDefault: true
+			},
+			{
+				params: [
+					{
+						id: "context",
+						value: "1m"
+					},
+					{
+						id: "reasoning_effort",
+						value: "max"
+					}
+				],
+				displayName: "Muse Wonder 1M Max"
 			}
 		]
 	}

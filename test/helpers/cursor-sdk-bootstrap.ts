@@ -104,8 +104,10 @@ export async function prepareInstalledBootstrapEmitters() {
 	// evaluates fresh exports/VM contexts, including the retained-console case.
 	return async (useColors: boolean) => {
 		const freshModules = await installedCursorModules();
-		const previous = { force: process.env.FORCE_COLOR, no: process.env.NO_COLOR };
+		const previous = { force: process.env.FORCE_COLOR, no: process.env.NO_COLOR, term: process.env.TERM };
 		delete process.env.NO_COLOR;
+		// The installed logger gives TERM=dumb precedence over FORCE_COLOR.
+		process.env.TERM = "xterm-256color";
 		process.env.FORCE_COLOR = useColors ? "1" : "0";
 		let core: any, logger: any;
 		try {
@@ -114,6 +116,7 @@ export async function prepareInstalledBootstrapEmitters() {
 		} finally {
 			if (previous.force === undefined) delete process.env.FORCE_COLOR; else process.env.FORCE_COLOR = previous.force;
 			if (previous.no === undefined) delete process.env.NO_COLOR; else process.env.NO_COLOR = previous.no;
+			if (previous.term === undefined) delete process.env.TERM; else process.env.TERM = previous.term;
 		}
 		const contextFactory = Object.values(core).filter((value): value is () => any => typeof value === "function" && value.length === 0);
 		const loggerFactory = Object.values(logger).filter((value): value is (name: string) => any => typeof value === "function");

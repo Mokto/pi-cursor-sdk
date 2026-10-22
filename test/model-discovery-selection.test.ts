@@ -69,9 +69,12 @@ describe("buildCursorModelSelection", () => {
 		});
 	});
 
-	it("maps generated Gemini reasoning_effort controls without changing catalog defaults", () => {
-		const gemini = FALLBACK_MODEL_ITEMS.find(({ id }) => id === "gemini-3.8-flash");
-		if (!gemini) throw new Error("gemini-3.8-flash fallback fixture missing");
+	it.each([
+		{ id: "gemini-3.8-flash", defaultEffort: "high" },
+		{ id: "gemini-4-argon", defaultEffort: "medium" },
+	])("maps generated $id reasoning_effort controls without changing catalog defaults", ({ id, defaultEffort }) => {
+		const gemini = FALLBACK_MODEL_ITEMS.find((item) => item.id === id);
+		if (!gemini) throw new Error(`${id} fallback fixture missing`);
 		const original = structuredClone(gemini);
 		const [model] = register([gemini]);
 
@@ -97,11 +100,34 @@ describe("buildCursorModelSelection", () => {
 		for (const level of ["off", "minimal", "xhigh", "max"] as const) {
 			expect(buildCursorModelSelection(gemini.id, level)).toEqual({
 				id: gemini.id,
-				params: [{ id: "reasoning_effort", value: "high" }],
+				params: [{ id: "reasoning_effort", value: defaultEffort }],
 			});
 		}
-		expect(getCursorModelMetadata(gemini.id)?.defaultParams).toEqual([{ id: "reasoning_effort", value: "high" }]);
+		expect(getCursorModelMetadata(gemini.id)?.defaultParams).toEqual([{ id: "reasoning_effort", value: defaultEffort }]);
 		expect(gemini).toEqual(original);
+	});
+
+	it("maps generated Muse Wonder contexts and reasoning without mutating its catalog defaults", () => {
+		const muse = FALLBACK_MODEL_ITEMS.find(({ id }) => id === "muse-wonder-1.0");
+		if (!muse) throw new Error("muse-wonder-1.0 fallback fixture missing");
+		const original = structuredClone(muse);
+		register([muse]);
+		expect(getCursorModelMetadata(`${muse.id}@1m`)?.defaultParams).toEqual([
+			{ id: "context", value: "1m" },
+			{ id: "reasoning_effort", value: "xhigh" },
+		]);
+		for (const context of ["300k", "1m"]) {
+			for (const effort of ["minimal", "low", "medium", "high", "xhigh", "max"] as const) {
+				expect(buildCursorModelSelection(`${muse.id}@${context}`, effort, true)).toEqual({
+					id: muse.id,
+					params: [
+						{ id: "context", value: context },
+						{ id: "reasoning_effort", value: effort },
+					],
+				});
+			}
+		}
+		expect(muse).toEqual(original);
 	});
 
 	it("retains the installed SDK catalog and optional selection-params declaration contract", () => {
