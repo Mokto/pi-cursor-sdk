@@ -56,7 +56,9 @@ The footer shows status such as `cursor:local · fast:off`, with `plan` or `http
 
 Cursor controls file tools, shell commands, edits, and configured MCP servers. The local MCP bridge exposes active Pi extension tools as `pi__*` names. The bridge is on by default. Pi hides matching built-ins from the bridge by default.
 
-**Pi's `--no-tools`, `--tools`, and `--exclude-tools` do not disable Cursor tools or Cursor MCP servers.** For local ordinary turns, opt in to `PI_CURSOR_NATIVE_TOOLS=0` to allow only MCP through the public SDK tool surface (including disabling native task/subagents). It leaves configured Cursor MCP available unless you also disable ambient setting sources. Cloud rejects this opt-out.
+**Pi's `--no-tools`, `--tools`, and `--exclude-tools` do not disable Cursor tools or Cursor MCP servers.** For local ordinary turns, opt in to `PI_CURSOR_NATIVE_TOOLS=0` to allow only MCP through the public SDK tool surface (including disabling native task/subagents). It leaves configured Cursor MCP available unless you also disable ambient setting sources. Cloud rejects this opt-out for both ordinary and selected-Cloud summary requests; only existing isolated LOCAL summary agents remain unaffected with `tools: []`.
+
+`PI_CURSOR_NATIVE_TOOLS` accepts `0`, `false`, `off`, `none`, `no`, and `disabled` as off (trimmed, case-insensitive); unset, blank, or unrecognized values keep native tools **on**.
 
 Local runs leave Cursor auto-review and sandboxing off by default. Read the [safety controls and hook limits](docs/reference.md#cursor-local-agent-config-and-safety-controls) before you depend on those controls or Cursor hooks.
 
