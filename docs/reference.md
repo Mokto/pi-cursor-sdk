@@ -53,7 +53,7 @@ If pi started without a key, run `/cursor-refresh-models` after `/login` to refr
 - optional Pi and TypeBox peer metadata uses `"*"` ranges per Pi package guidance
 - a Cursor SDK API key saved through `/login`, available as `CURSOR_API_KEY`, or passed with pi's `--api-key`
 
-No global `@cursor/sdk` install is required. This package depends on exact `@cursor/sdk@1.0.37`, so normal package installation brings in that SDK. The extension intentionally does not bundle `@cursor/sdk` or its platform packages, because packing from one maintainer OS can ship the wrong optional SDK binary for another OS. The SDK has used its current single-file/new-chunk package layout since 1.0.28. Pi hosts that pass transcript-only provider contexts are supported through Pi 0.87.1's required public replay helpers.
+No global `@cursor/sdk` install is required. This package depends on exact `@cursor/sdk@1.0.40`, so normal package installation brings in that SDK. The extension intentionally does not bundle `@cursor/sdk` or its platform packages, because packing from one maintainer OS can ship the wrong optional SDK binary for another OS. The SDK has used its current single-file/new-chunk package layout since 1.0.28. Pi hosts that pass transcript-only provider contexts are supported through Pi 0.87.1's required public replay helpers.
 
 ## Install
 
@@ -634,6 +634,7 @@ Actual Cursor runs still need a key from `/login`, `CURSOR_API_KEY`, or `--api-k
 
 ## Limits
 
+- **SDK hook compatibility is not blanket enforcement.** SDK 1.0.40 enables nested Claude-format denial/rewrite translation in its LOCAL hook runtime and improves Windows hook input/exit handling. The installed-package contracts exercise the settings/command-hook boundary, not a public Agent/Pi/rtk run; original [#173](https://github.com/fitchmultz/pi-cursor-sdk/issues/173) remains unqualified. Pi hooks still do not intercept native SDK execution. See [the bounded hook contract](./cursor-testing-lessons.md#sdk-1040-hook-maintenance-boundary).
 - **Commit/PR attribution has no supported opt-out.** SDK 1.0.37 exposes neither attribution control through public create/local/send/configure options. CLI-file edits and SDK-internal patches are not supported extension settings; [#302](https://github.com/fitchmultz/pi-cursor-sdk/issues/302) tracks both controls.
 
 - **Cloud runtime is explicit and minimal.** Local remains the default. Cloud runs create Cursor cloud agents only after first-use acknowledgement and safety preflight, use fresh context by default, do not expose the pi bridge or local MCP, do not forward pi env vars, support explicit Cursor-managed environment selection, name agents from the pi session title when available, stream display-only agent/run/branch/PR/artifact/raw-usage telemetry when available, and record only explicit session-branch lifecycle commands for cleanup (`/cursor-cloud list|archive|delete`).

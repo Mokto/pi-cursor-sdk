@@ -1,4 +1,3 @@
-import { AsyncLocalStorage } from "node:async_hooks";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { runInNewContext } from "node:vm";
@@ -35,20 +34,17 @@ export async function prepareInstalledBootstrapEmitters() {
 	const inventory = find(ts.isFunctionExpression, '"managed_skills.startup_inventory"');
 	const load = find(ts.isFunctionExpression, '"loadUserLocalPlugins: no home directory available, skipping"');
 	const pluginLogger = find(ts.isObjectLiteralExpression, '"[local-plugins-bootstrap]"');
-	const facadeName = callName(pluginLogger, "warn");
-	const facade = find(ts.isVariableDeclaration, `warn(...`);
-	// The facade delegates through the installed AsyncLocalStorage/default bound console.
-	const facadeCall = descendants(facade, n => ts.isCallExpression(n) && ts.isIdentifier(n.expression))[0] as ts.CallExpression;
-	const getSink = find(ts.isFunctionDeclaration, `${(facadeCall.expression as ts.Identifier).text}()`);
-	const getSinkNames = descendants(getSink.body!, ts.isIdentifier).map(n => (n as ts.Identifier).text);
-	const defaultSink = getSinkNames.find(name => {
-		try { return find(ts.isVariableDeclaration, `${name}=`).getText(ast).includes("console.warn.bind(console)"); } catch { return false; }
-	});
-	if (!defaultSink) throw new Error("Installed bound console contract changed");
-	const bound = find(ts.isVariableDeclaration, `${defaultSink}={warn:console.warn.bind(console)`);
-	const storageName = callName(getSink, "getStore");
-	const storage = find(ts.isVariableDeclaration, `${storageName}=new `);
-	const asyncNamespace = (storage.initializer as ts.NewExpression).expression as ts.PropertyAccessExpression;
+	// SDK40 moved the console facade into the installed local-runtime logger.
+	// Discover its actual import and evaluate that module, not a replacement sink.
+	const warn = descendants(pluginLogger, n => ts.isPropertyAccessExpression(n) && n.name.text === "warn")[0] as ts.PropertyAccessExpression;
+	if (!warn || !ts.isPropertyAccessExpression(warn.expression) || !ts.isIdentifier(warn.expression.expression)) {
+		throw new Error("Installed plugin logger namespace changed");
+	}
+	const facadeNamespace = warn.expression.expression.text;
+	const facadeImport = find(ts.isVariableDeclaration, `${facadeNamespace}=`).initializer;
+	if (!facadeImport || !ts.isCallExpression(facadeImport) || facadeImport.arguments.length !== 1 ||
+		!ts.isStringLiteral(facadeImport.arguments[0]!)) throw new Error("Installed plugin logger import changed");
+	const facadeModule = (facadeImport.arguments[0] as ts.StringLiteral).text;
 	const guardCall = descendants(load, n => ts.isCallExpression(n) && ts.isIdentifier(n.expression) &&
 		n.arguments.length === 2 && n.parent && ts.isExpressionStatement(n.parent))[0] as ts.CallExpression;
 	const guard = find(ts.isFunctionDeclaration, `function ${(guardCall.expression as ts.Identifier).text}(`);
@@ -59,8 +55,7 @@ export async function prepareInstalledBootstrapEmitters() {
 	const pathNamespace = descendants(paths.expression, ts.isIdentifier)[0] as ts.Identifier;
 	const readDir = descendants(load, n => ts.isPropertyAccessExpression(n) && n.name.text === "readdir")[0] as ts.PropertyAccessExpression;
 	const fsNamespace = descendants(readDir.expression, ts.isIdentifier)[0] as ts.Identifier;
-	const pluginSource = `let ${bound.getText(ast)}; const ${storage.getText(ast)}; ${getSink.getText(ast)}
-		const ${facadeName}=${facade.initializer!.getText(ast)}; ${guard.getText(ast)}
+	const pluginSource = `${guard.getText(ast)}
 		({ load: (${load.getText(ast)}), logger: (${pluginLogger.getText(ast)}) })`;
 	const inventoryLogger = callName(inventory, "info");
 	const inventorySource = `(${inventory.getText(ast)})`;
@@ -91,12 +86,12 @@ export async function prepareInstalledBootstrapEmitters() {
 	const eventMap = find(ts.isVariableDeclaration, "Notification:null");
 	const eventNames = find(ts.isVariableDeclaration, 'beforeShellExecution:"beforeShellExecution"');
 	const unsupportedEvents = find(ts.isVariableDeclaration, '=["Notification","PermissionRequest"]');
+	const ownEvent = find(ts.isFunctionDeclaration, `Object.prototype.hasOwnProperty.call(${eventMap.name.getText(ast)},`);
 	const hookSource = `const ${eventNames.getText(ast)}, ${eventMap.getText(ast)}, ${unsupportedEvents.getText(ast)},
 		${toolMap.getText(ast)}, ${unsupported.getText(ast)}, ${defaultLogger.getText(ast)};
-		${hookDefinition.getText(ast)}; ${hooks.getText(ast)}; ${eventHooks.getText(ast)};
+		${ownEvent.getText(ast)}; ${hookDefinition.getText(ast)}; ${hooks.getText(ast)}; ${eventHooks.getText(ast)};
 		({ convertHook: ${hooks.name!.text}, convertEvents: ${eventHooks.name!.text} })`;
 	const parserWarning = find(ts.isStringLiteral, "shell-parser: tree-sitter natives are unavailable").text;
-	const asyncNamespaceName = asyncNamespace.expression.getText(ast);
 	const pathNamespaceName = pathNamespace.text, fsNamespaceName = fsNamespace.text;
 	const readerName = (reader.expression as ts.Identifier).text;
 
@@ -123,7 +118,7 @@ export async function prepareInstalledBootstrapEmitters() {
 		if (contextFactory.length !== 1 || loggerFactory.length !== 1) throw new Error("Installed context/logger exports changed");
 		let readerCalls = 0;
 		const plugin = runInNewContext(pluginSource, {
-			console, process, performance, [asyncNamespaceName]: { AsyncLocalStorage },
+			console, process, performance, [facadeNamespace]: freshModules(facadeModule),
 			[pathNamespaceName]: path, [fsNamespaceName]: fs,
 			[readerName]: () => { readerCalls++; throw new Error("Outside guard reached plugin reader"); },
 		});
