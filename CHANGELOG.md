@@ -10,6 +10,8 @@
 
 - Supply SDK 1.0.40's required Zod peer as a direct exact `zod@3.25.76` runtime dependency, retaining the already-qualified version rather than relying on peer auto-installation or an ambient host package.
 
+- Update the bundled MCP bridge closure's Zod from 4.6.5 to 4.6.7, whose v4 parser checks array, set and map size bounds before parsing elements ([GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)). This is a lockfile-only change. The SDK's Zod peer stays at exact 3.25.76, so its legacy v3 parser and older v4 snapshot remain unpatched and `npm audit` still reports one high finding. A normal root Zod 4 resolution packed it inside the bundle and broke SDK loading under Pi's managed `--legacy-peer-deps` npm install, so other layouts are left for a separate packaging review (#380).
+
 - Stop `smoke:steering --self-test` from rebuilding `dist/` before its offline probe. The rebuild briefly removed `dist/` while the concurrent package test packed the checkout, producing an intermittent missing `dist/index.js` failure. Live steering runs still rebuild first (fitchmultz/.github#98).
 
 ### Verification and limits

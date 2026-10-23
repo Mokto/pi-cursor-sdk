@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpath
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, sep } from "node:path";
+import { pathToFileURL } from "node:url";
 import { OPENAI_CODEX_MODELS } from "@earendil-works/pi-ai/providers/openai-codex.models";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -137,8 +138,17 @@ describe("package metadata cutover baselines", () => {
 		expect(packageLock.packages[""]?.dependencies?.zod).toBe(packageJson.dependencies.zod);
 		expect(lockPackageVersion("zod")).toBe(packageJson.dependencies.zod);
 		const sdkRequire = createRequire(join(sdkRoot, "package.json"));
-		for (const specifier of ["zod", "zod/v3", "zod/v4"]) {
+		for (const specifier of ["zod", "zod/v3", "zod/v4", "zod/v4-mini"]) {
 			expect(sdkRequire.resolve(specifier)).toBe(require.resolve(specifier));
+		}
+	});
+
+	it("bundles MCP bridge parsers that reject oversized bounded arrays before parsing elements", async () => {
+		for (const packageRoot of ["@modelcontextprotocol/server", "@modelcontextprotocol/core"].map(resolveInstalledPackageRoot)) {
+			const zodEntry = createRequire(join(packageRoot, "package.json")).resolve("zod/v4");
+			const { z } = (await import(pathToFileURL(zodEntry).href)) as typeof import("zod/v4");
+			const result = z.array(z.number()).max(2).safeParse([1, "a", "b", "c"]);
+			expect(result.error?.issues.map((issue) => issue.code), packageRoot).toEqual(["too_big"]);
 		}
 	});
 
@@ -185,6 +195,8 @@ describe("package metadata cutover baselines", () => {
 			expect(packedIdentities.has("@modelcontextprotocol/client")).toBe(false);
 			expect(packedIdentities.has("@cursor/sdk")).toBe(false);
 			expect(packedIdentities.has("undici")).toBe(false);
+			// Pi's managed npm installs omit peers, so the hoisted SDK can only use a non-bundled Zod.
+			expect(listing).not.toContain("package/node_modules/zod/package.json");
 
 			const hostRoot = join(tempRoot, "host");
 			const hostNodeModules = join(hostRoot, "node_modules");
