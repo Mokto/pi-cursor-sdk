@@ -130,7 +130,7 @@ describe("buildCursorModelSelection", () => {
 		expect(muse).toEqual(original);
 	});
 
-	it("retains the installed SDK catalog and optional selection-params declaration contract", () => {
+	it("retains the installed SDK catalog, optional params and max-mode declaration contract", () => {
 		const path = join(resolveInstalledPackageRoot("@cursor/sdk"), "dist/esm/options.d.ts");
 		const ast = ts.createSourceFile(path, readFileSync(path, "utf8"), ts.ScriptTarget.Latest, true);
 		const shapes = Object.fromEntries(ast.statements.filter(ts.isInterfaceDeclaration).map((node) => [
@@ -138,9 +138,9 @@ describe("buildCursorModelSelection", () => {
 			node.members.map((member) => member.getText(ast)),
 		]));
 		expect(shapes.ModelParameterValue).toEqual(["id: string;", "value: string;"]);
-		expect(shapes.ModelSelection).toEqual(["id: string;", "params?: ModelParameterValue[];"]);
+		expect(shapes.ModelSelection).toEqual(["id: string;", "params?: ModelParameterValue[];", "maxMode?: boolean;"]);
 		expect(shapes.ModelVariant).toEqual(expect.arrayContaining([
-			"params: ModelParameterValue[];", "isDefault?: boolean;",
+			"params: ModelParameterValue[];", "isDefault?: boolean;", "isMaxMode?: boolean;",
 		]));
 		expect(shapes.ModelListItem).toEqual(expect.arrayContaining([
 			"id: string;", "aliases?: string[];", "parameters?: ModelParameterDefinition[];", "variants?: ModelVariant[];",
