@@ -84,6 +84,12 @@ SDK 1.0.37 does materially change its vendored transport/retry source: HTTP/2 pi
 
 The 60-second MCP protocol default and lack of a public timeout option remain. SDK 1.0.37's internal `setToolCallRequestOptions`, `setToolCallOutputSchemaPassthrough` and `setListingDeadline` each occur only as definitions in the inspected ESM JavaScript, with no invocation found. They are not supported public setters or proof of readiness; preserve the extension's verified timeout compatibility path rather than adding private patches. The new public `computerUse` output variant uses the existing bounded generic replay fallback, not dedicated action/screenshot rendering or a new local execution option; see the [canonical replay matrix](./cursor-native-tool-replay.md#sdk-tooltype-replay-matrix).
 
+### SDK 1.0.40 hook maintenance boundary
+
+The 1.0.40 pin has a concrete compatibility/security reason beyond its version number. Both 1.0.37 and 1.0.40 load enabled Claude user/project hook settings, but only 1.0.40 enables nested `hookSpecificOutput` compatibility in the LOCAL hook runtime factory. A successful command hook returning only nested `permissionDecision: "deny"` or `updatedInput` otherwise leaves the top-level fields consumed by the adapters absent. SDK 1.0.40 also adds Windows native exit-code propagation and UTF-8 payload handling; exit 2 denotes denial, while other nonzero exits normally require `failClosed` to block.
+
+`test/cursor-sdk-hook-compatibility-contract.test.ts` reuses the installed-module harness to discover that factory structurally, observe its lexical binding in a test-only evaluation, load fresh project Claude settings, and execute a harmless Node hook child. It checks nested denial/rewrite, output precedence/event guards, UTF-8 stdin and native exit-2 handling. Original fixtures are retained when `PI_CURSOR_TEST_EVIDENCE_DIR` is set. Linux results do not qualify Windows PowerShell; the unchanged native Windows CI runs this contract too. The rewritten command is not executed, and neither a public Agent/model request nor Pi/rtk policy enforcement is tested. These checks do not close #173 or qualify #206/#233/#247/#257/#282/#339; SDK 1.0.40 still exposes neither commit nor PR attribution control (#302). Preserve all earlier package/canary/catalog observations at their actual versions and dates.
+
 ## Maintainer-only offline proof retention
 
 Native SQLite fixtures should open the public `SqliteLocalAgentStore` from `@cursor/sdk/sqlite` with an explicit `stateRoot` under their temporary directory, pass it as `localStore` to `createAgentPlatform`, and await `dispose()` in `finally` before removing that directory. `scopedWorkspaceRef` filters agents; it does not relocate storage. Assert the owned `index.db` exists to guard isolation. A fresh missing-agent `checkpointStore.loadLatest()` returning `null` checks the lookup boundary, not per-agent checkpoint database I/O; see `test/cursor-sdk-lazy-import.test.ts`.
@@ -355,7 +361,7 @@ The script writes timestamped artifacts under `--out` (default `/tmp/pi-cursor-s
 
 Stdout prints artifact paths and summary counts only. Raw payloads stay on disk and may contain local paths, project text, tool args/results, or secrets — do not commit or share them.
 
-Hard repo rule: Cursor SDK behavior claims must come from the installed `@cursor/sdk` package and/or https://cursor.com/docs/sdk/typescript, not from memory or ad-hoc probes alone. Current validation targets Node 24+, exact `@cursor/sdk@1.0.37`, official Pi 0.87.1/latest, and current `fitchmultz/pi` main.
+Hard repo rule: Cursor SDK behavior claims must come from the installed `@cursor/sdk` package and/or https://cursor.com/docs/sdk/typescript, not from memory or ad-hoc probes alone. Current validation targets Node 24+, exact `@cursor/sdk@1.0.40`, official Pi 0.87.1/latest, and current `fitchmultz/pi` main.
 
 ## Pi provider SDK event capture
 
