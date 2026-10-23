@@ -7,6 +7,7 @@ import { OPENAI_CODEX_MODELS } from "@earendil-works/pi-ai/providers/openai-code
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { FALLBACK_MODEL_ITEMS } from "../src/cursor-fallback-models.generated.js";
+import { resolveInstalledPackageRoot } from "./helpers/installed-package.js";
 
 const require = createRequire(import.meta.url);
 const packageJson = require("../package.json") as {
@@ -120,6 +121,25 @@ describe("package metadata cutover baselines", () => {
 		}
 		expect(packageJson.devDependencies.typebox).toMatch(/^\d+\.\d+\.\d+$/);
 		expect(lockPackageVersion("typebox")).toBe(packageJson.devDependencies.typebox);
+	});
+
+	it("supplies the SDK's required Zod peer without peer auto-installation", () => {
+		const sdkRoot = resolveInstalledPackageRoot("@cursor/sdk");
+		const sdk = JSON.parse(readFileSync(join(sdkRoot, "package.json"), "utf8")) as {
+			peerDependencies?: Record<string, string>;
+			peerDependenciesMeta?: Record<string, { optional?: boolean }>;
+		};
+		expect(sdk.peerDependencies?.zod).toBe("^3.25.0 || ^4.0.0");
+		expect(sdk.peerDependenciesMeta?.zod?.optional).not.toBe(true);
+		// Keep the already-qualified version, but make its runtime ownership
+		// explicit for installers that do not automatically install SDK peers.
+		expect(packageJson.dependencies.zod).toBe("3.25.76");
+		expect(packageLock.packages[""]?.dependencies?.zod).toBe(packageJson.dependencies.zod);
+		expect(lockPackageVersion("zod")).toBe(packageJson.dependencies.zod);
+		const sdkRequire = createRequire(join(sdkRoot, "package.json"));
+		for (const specifier of ["zod", "zod/v3", "zod/v4"]) {
+			expect(sdkRequire.resolve(specifier)).toBe(require.resolve(specifier));
+		}
 	});
 
 	it("keeps registry dependencies public", () => {

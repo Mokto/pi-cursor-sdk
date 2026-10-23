@@ -8,8 +8,11 @@
 
 - Upgrade the exact unbundled Cursor SDK and its optional platform packages from 1.0.37 to 1.0.40 for LOCAL Claude-format hook compatibility: the SDK now enables translation of nested `hookSpecificOutput` denial/rewrite output into the fields its tool adapters consume. It also improves Windows command-hook UTF-8 input and native exit-code propagation. This is not a Pi pre-execution hook, universal policy guarantee, or resolution of the original rtk report (#173).
 
+- Supply SDK 1.0.40's required Zod peer as a direct exact `zod@3.25.76` runtime dependency, retaining the already-qualified version rather than relying on peer auto-installation or an ambient host package.
+
 ### Verification and limits
 
+- **User-visible rollout:** admitted user/project Claude hooks returning only nested denial/rewrite output can now affect tool execution where SDK 1.0.37 ignored that output; this is an intended behavior change, not just a test-harness repair.
 - Add installed-package contracts for actual Claude settings loading, UTF-8 hook input, nested denial/rewrite, conflicting/mismatched output guards and native exit-2 denial. These use test-only lexical observation, not a production SDK patch, public Agent/backend run or startup canary. Preserve the dated SDK 1.0.37 catalog and older captures at their actual identities; the other original backlog causes remain unqualified and both commit/PR attribution controls remain unavailable.
 
 ## 0.5.4
