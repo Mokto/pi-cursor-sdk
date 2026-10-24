@@ -132,9 +132,8 @@ describe("package metadata cutover baselines", () => {
 		};
 		expect(sdk.peerDependencies?.zod).toBe("^3.25.0 || ^4.0.0");
 		expect(sdk.peerDependenciesMeta?.zod?.optional).not.toBe(true);
-		// Keep the already-qualified version, but make its runtime ownership
-		// explicit for installers that do not automatically install SDK peers.
-		expect(packageJson.dependencies.zod).toBe("3.25.76");
+		// The patched SDK peer must stay external to the bridge's newer bundle.
+		expect(packageJson.dependencies.zod).toBe("4.6.6");
 		expect(packageLock.packages[""]?.dependencies?.zod).toBe(packageJson.dependencies.zod);
 		expect(lockPackageVersion("zod")).toBe(packageJson.dependencies.zod);
 		const sdkRequire = createRequire(join(sdkRoot, "package.json"));
@@ -143,13 +142,24 @@ describe("package metadata cutover baselines", () => {
 		}
 	});
 
-	it("bundles MCP bridge parsers that reject oversized bounded arrays before parsing elements", async () => {
-		for (const packageRoot of ["@modelcontextprotocol/server", "@modelcontextprotocol/core"].map(resolveInstalledPackageRoot)) {
-			const zodEntry = createRequire(join(packageRoot, "package.json")).resolve("zod/v4");
-			const { z } = (await import(pathToFileURL(zodEntry).href)) as typeof import("zod/v4");
-			const result = z.array(z.number()).max(2).safeParse([1, "a", "b", "c"]);
-			expect(result.error?.issues.map((issue) => issue.code), packageRoot).toEqual(["too_big"]);
-		}
+	it.each([
+		["@cursor/sdk", "zod/v4"],
+		["@cursor/sdk", "zod/v4-mini"],
+		["@modelcontextprotocol/server", "zod/v4"],
+		["@modelcontextprotocol/core", "zod/v4"],
+	])("%s's %s rejects oversized bounded arrays before parsing elements", async (packageName, specifier) => {
+		const packageRoot = resolveInstalledPackageRoot(packageName);
+		const zodEntry = createRequire(join(packageRoot, "package.json")).resolve(specifier);
+		// Both entrypoints expose this functional API.
+		const z = (await import(pathToFileURL(zodEntry).href)) as typeof import("zod/v4-mini");
+		const unbounded = z.array(z.number());
+		const bounded = z.array(z.number()).check(z.maxLength(2));
+		expect(bounded.safeParse([1, "a", "b", "c"]).error?.issues.map((issue) => issue.code)).toEqual(["too_big"]);
+		expect(bounded.safeParse([1, 2]).success).toBe(true);
+		expect(bounded.safeParse([1, "a"]).error?.issues.map((issue) => issue.code)).toEqual(["invalid_type"]);
+		expect(unbounded.safeParse([1, "a", "b", "c"]).error?.issues.map((issue) => issue.code)).toEqual([
+			"invalid_type", "invalid_type", "invalid_type",
+		]);
 	});
 
 	it("keeps registry dependencies public", () => {

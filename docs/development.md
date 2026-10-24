@@ -12,6 +12,14 @@ No paid Cursor Cloud testing for generic PRs or releases. Only a PR or issue exp
 
 The older live smoke helpers remain useful for inner-loop debugging and focused visual audits, not as the release gate. Use [Cursor live smoke checklist](./cursor-live-smoke-checklist.md), `npm run smoke:visual`, `npm run smoke:live`, or direct `pi --approve -e . --cursor-no-fast --model cursor/grok-4.6` runs only when a changed TUI/card/runtime behavior needs new live evidence. Select one relevant check rather than executing every helper. `npm run smoke:visual` captures an offscreen PTY rendered through browser/xterm and saved as PNG screenshots with Playwright, or with `agent_browser` from the generated HTML when available. Its default matrix is native replay only: native replay registration is forced on, Cursor setting sources are disabled, the pi bridge is off, overlapping built-in pi tools are not exposed, and inherited Cursor SDK event-debug artifact env is cleared; `--event-debug` writes to a deterministic debug directory under the visual output directory. The visible TUI/output, rendered screenshots, scrubbed diagnostics, and persisted JSONL must agree. See [Cursor testing lessons](./cursor-testing-lessons.md) for auth.json seeding, isolated `/tmp` harness layout, JSONL replay-error scans, and other regression traps.
 
+## Zod peer and bridge packaging
+
+Keep the exact SDK peer `zod@4.6.6` external and the bridge's newer nested `zod@4.6.7` copies bundled. Both contain the upstream bounded-collection fix; their published tarballs differ only in version metadata. This uses npm's ordinary locked dependency layout, not overrides, copied dependencies or SDK patches.
+
+Preserve that layout when updating dependencies. An explicit `npm install zod@4.6.7` or a dedupe can move the shared copy to the package root, where npm includes it in the bridge bundle. Pi's `--legacy-peer-deps` consumer then hoists the unbundled SDK without an accessible Zod peer. `--omit=peer` is not equivalent and does not reproduce that failure.
+
+`test/package-metadata.test.ts` owns the required peer/entrypoint contract, SDK v4/v4-mini and bridge parser controls, and the packed-root exclusion guard. For Zod or bundling changes, also pack the built source and install that exact tarball into fresh consumers with default npm, Pi-managed npm (`--legacy-peer-deps --no-audit`), npm `--omit=peer`, Pi-managed pnpm (peer auto-installation off) and Pi-managed Bun (`--omit=peer`). Check actual SDK ESM imports and SDK-relative `zod`, `zod/v3`, `zod/v4`, `zod/v4-mini` resolution, plus the bundled bridge. Retain artifact hashes and installer versions. A clean audit or source-only parser test does not prove the published installation works.
+
 ## Maintainer Cursor SDK event capture
 
 Use `npm run debug:sdk-events` to capture timestamped `run.stream()`, `onDelta`, and `onStep` timelines for one direct `@cursor/sdk` run.
