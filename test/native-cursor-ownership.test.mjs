@@ -3,7 +3,7 @@ import { readFile, realpath, writeFile } from "node:fs/promises";
 import { join, toNamespacedPath } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
-import { concurrentFixture, retainNativeEvidence, SessionManager, setupNativeCursorHarness, state } from "./helpers/native-cursor-harness.mjs";
+import { concurrentFixture, retainNativeEvidence, SessionManager, setupNativeCursorHarness, state, storeRootOf } from "./helpers/native-cursor-harness.mjs";
 
 setupNativeCursorHarness();
 
@@ -116,7 +116,7 @@ test("same-file durable resume handles remain stable but cannot reattach a live 
     assert.equal(new Set(state.sends.slice(sendCount).map(send => send.agentId)).size, 2);
     assert.equal(state.resumed.at(-1).agentId, handle.agentId);
 
-    const sdkStateRoot = state.resumed.at(-1).options.local.store.stateRoot;
+    const sdkStateRoot = storeRootOf(state.resumed.at(-1).options.local.store);
     assert.equal(sdkStateRoot, toNamespacedPath(handle.storeIdentity.stateRoot));
     assert.equal(await realpath(sdkStateRoot), await realpath(handle.storeIdentity.stateRoot));
   });
