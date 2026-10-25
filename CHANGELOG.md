@@ -6,6 +6,8 @@
 
 ### Fixed
 
+- Stop a failed LOCAL Cursor run's shell commands and other native tool processes. SDK 1.0.40 leaves them running after a run fails, for example when it gives up resuming a reset connection, and `Run.cancel()` stops them only while the run is still running. The provider now cancels the run while the SDK records the failure, which the SDK does before it marks the run failed, and still reports the SDK's failure message as a Pi error. A separate SDK error code, when present, is not shown after this cancellation. Explicit Pi aborts and Cloud runs are unchanged (#384).
+
 - Upgrade the exact unbundled Cursor SDK and its optional platform packages from 1.0.37 to 1.0.40 for LOCAL Claude-format hook compatibility: the SDK now enables translation of nested `hookSpecificOutput` denial/rewrite output into the fields its tool adapters consume. It also improves Windows command-hook UTF-8 input and native exit-code propagation. This is not a Pi pre-execution hook, universal policy guarantee, or resolution of the original rtk report (#173).
 
 - Supply SDK 1.0.40's required Zod peer as a direct exact `zod@4.6.6` runtime dependency, with the bundled MCP bridge's newer nested `4.6.7` copies retained by npm's lockfile. This keeps the peer outside the tarball's bundle and reachable by the unbundled SDK under Pi's `--legacy-peer-deps` installation, without peer auto-installation, overrides or SDK patches (#380). A deduplicated root `4.6.7` copy instead gets bundled and breaks that installation.

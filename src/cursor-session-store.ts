@@ -6,6 +6,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep, toNamespacedPath } f
 import type { LocalAgentStore } from "@cursor/sdk";
 import { loadCursorSdk } from "./cursor-sdk-runtime.js";
 import { guardCursorCustomStorePath, normalizeCursorCustomStoreRoot, prepareCursorCustomStoreRoot } from "./cursor-custom-store-path.js";
+import { observeCursorLocalRunTerminalErrors } from "./cursor-local-run-terminal-error.js";
 
 export interface CursorSessionStoreIdentity {
 	readonly version: 1;
@@ -299,7 +300,7 @@ async function openOwnedCursorSessionStore(
 	const openedStore = store;
 	return {
 		identity: openedIdentity,
-		store: openedStore,
+		store: observeCursorLocalRunTerminalErrors(openedStore),
 		dispose: async () => {
 			try {
 				await openedStore.dispose();

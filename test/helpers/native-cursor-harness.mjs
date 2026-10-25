@@ -7,11 +7,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 import { after, afterEach } from "node:test";
 import { Type } from "typebox";
-import { state, Cursor } from "../fixtures/native-cursor-sdk.mjs";
+import { state, Cursor, storeRootOf } from "../fixtures/native-cursor-sdk.mjs";
 import { __testUtils as outputFilterTestUtils } from "../../shared/cursor-sdk-output-filter.mjs";
 import { writeRawTestEvidence } from "./raw-test-evidence.mjs";
 
-export { state };
+export { state, storeRootOf };
 export const { createAgentSession, DefaultResourceLoader, ModelRuntime, SessionManager, SettingsManager } = await import(
   process.env.PI_CURSOR_TEST_HOST ?? "@earendil-works/pi-coding-agent"
 );
@@ -144,7 +144,7 @@ export async function retainNativeEvidence(label, manager, cwd) {
       agentId: agent.agentId, disposed: agent.disposed,
       mode: agent.options.mode, tools: agent.options.tools,
       settingSources: agent.options.local.settingSources,
-      storeRoot: agent.options.local.store?.stateRoot,
+      storeRoot: storeRootOf(agent.options.local.store),
       mcpServers: Object.keys(agent.options.mcpServers ?? {}),
       subagentNames: Object.keys(agent.options.agents ?? {}),
     })),

@@ -17,6 +17,7 @@ This repository is a pi provider extension that registers Cursor SDK-backed mode
 - `src/cursor-provider-turn-emit.ts` owns live vs direct emission from finalized outcomes.
 - `src/cursor-provider-turn-types.ts` owns immutable turn phase data and explicit phase result types; phase-local cleanup stays inside the owning phase.
 - `src/cursor-provider-run-outcome.ts` owns the discriminated `CursorRunOutcome` model and terminal emission classification.
+- `src/cursor-local-run-terminal-error.ts` owns cancelling a failed LOCAL run from its SDK terminal error run-row write (before the SDK changes `run.status`, so native tool processes stop) and restoring the SDK error from the resulting cancelled wait result; session stores are wrapped at open.
 - `src/cursor-provider-run-finalizer.ts` owns live-run wait completion, outcome application, debug finalization, and SDK abort-suppression disposal.
 - `src/cursor-run-final-text.ts` owns final assistant text selection for run outcomes and live-run drain.
 - `src/cursor-provider-errors.ts` owns scrubbed Cursor SDK run failure detail, abort reason formatting, and provider error sanitization.

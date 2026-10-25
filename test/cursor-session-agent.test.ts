@@ -8,7 +8,7 @@ import {
 	__testUtils as sessionAgentTestUtils,
 } from "../src/cursor-session-agent.js";
 import { registerCursorSessionAgentLifecycle } from "../src/cursor-session-agent-lifecycle.js";
-import { installCursorSessionStoreMock } from "./helpers/cursor-session-store.js";
+import { installCursorSessionStoreMock, sessionStoreBackedBy } from "./helpers/cursor-session-store.js";
 import { buildCursorSessionStateRoot } from "../src/cursor-session-store.js";
 
 describe("cursor-session-agent", () => {
@@ -41,8 +41,8 @@ describe("cursor-session-agent", () => {
 			workspaceRef: "/tmp/project",
 			stateRoot: toNamespacedPath(buildCursorSessionStateRoot("/tmp/cursor-sdk-state/workspace", scopeKey)),
 		});
-		expect(createAgent.mock.calls[0][0].local?.store).toBe(storeMock.stores[0]);
-		expect(lease.store).toBe(storeMock.stores[0]);
+		expect(lease.store).toEqual(sessionStoreBackedBy(storeMock.stores[0]));
+		expect(createAgent.mock.calls[0][0].local?.store).toBe(lease.store);
 
 		await sessionAgentTestUtils.resetSessionCursorAgent(scopeKey);
 		expect(storeMock.stores[0].dispose).toHaveBeenCalledTimes(1);
