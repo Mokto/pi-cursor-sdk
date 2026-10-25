@@ -17,11 +17,11 @@ const packageJson = require("../package.json") as {
 	devDependencies: Record<string, string>;
 	peerDependencies: Record<string, string>;
 	bundledDependencies?: string[];
-	overrides?: Record<string, string>;
+	overrides?: Record<string, string | Record<string, string>>;
 };
 const packageLock = require("../package-lock.json") as {
 	version: string;
-	packages: Record<string, { version?: string; resolved?: string; dependencies?: Record<string, string>; bundleDependencies?: boolean | string[] }>;
+	packages: Record<string, { version?: string; resolved?: string; dev?: boolean; dependencies?: Record<string, string>; bundleDependencies?: boolean | string[] }>;
 };
 
 const PI_PACKAGES = [
@@ -183,9 +183,14 @@ describe("package metadata cutover baselines", () => {
 		expect(lockPackageVersion("@connectrpc/connect-node")).toBeUndefined();
 	});
 
-	it("leaves the Cursor SDK transport dependency tree to npm resolution", () => {
+	it("patches only the frozen development Pi owner's Undici dependency", () => {
 		expect(packageJson.dependencies.undici).toBeUndefined();
-		expect(packageJson.overrides).toBeUndefined();
+		expect(packageJson.devDependencies["@earendil-works/pi-coding-agent"]).toBe("1.1.0");
+		expect(packageJson.overrides).toEqual({
+			"@earendil-works/pi-coding-agent@1.1.0": { undici: "8.12.3" },
+		});
+		expect(packageLock.packages["node_modules/@earendil-works/pi-coding-agent"]?.dependencies?.undici).toBe("8.10.2");
+		expect(packageLock.packages["node_modules/undici"]).toMatchObject({ version: "8.12.3", dev: true });
 	});
 
 	it("packs an isolated MCP/Hono closure that beats a hostile host @hono/node-server", () => {
