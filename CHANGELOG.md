@@ -4,10 +4,13 @@
 
 ## Unreleased
 
-### Fixed
+### Changed
 
-- Load `@cursor/sdk` on first use instead of at extension load, so Pi starts without evaluating it. `cursor-sdk-runtime` statically imports a Pi host peer, which compiled-Bun Pi can't load natively, so Pi's loader transpiles the module and resolves its `import("@cursor/sdk")` itself; the static SDK import from #228 is no longer needed. Checked with a fake key on compiled-Bun Pi 1.4.0 and npm Pi 1.4.0: both reach Cursor's `Invalid User API Key`.
-- Fill the model-list cache in RPC mode. The `session_start` local refresh superseded the network refresh Pi starts just before it, and Pi drops a superseded catalog unsaved, so the cache never filled and every Pi start loaded the SDK and fetched the catalog. `session_start` now requests the refresh again after its local one, with network allowed only as Pi's own setting allows.
+- Load `@cursor/sdk` on first use instead of unconditionally evaluating it when the extension loads. A Pi host-peer import lets the compiled-Bun extension loader resolve the lazy SDK import; a network-allowed host refresh can still load it during startup. If the SDK import fails, correct the cause and restart Pi; the loader retains that failure rather than retrying into a potentially partial module.
+
+## 0.5.5
+
+### Fixed
 
 - Stop a failed LOCAL Cursor run's shell commands and other native tool processes. SDK 1.0.40 leaves them running after a run fails, for example when it gives up resuming a reset connection, and `Run.cancel()` stops them only while the run is still running. The provider now cancels the run while the SDK records the failure, which the SDK does before it marks the run failed, and still reports the SDK's failure message as a Pi error. A separate SDK error code, when present, is not shown after this cancellation. Explicit Pi aborts and Cloud runs are unchanged (#384).
 
@@ -18,6 +21,10 @@
 - Both the SDK's v4/v4-mini parsers and the bridge's v4 parsers now include the bounded-collection fix for [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5): array, set and map size bounds are checked before parsing elements. Zod 4.6.7 differs from 4.6.6 only in version metadata. The legacy `zod/v3` implementation is unchanged, and unconstrained collections still validate every element; this is not a universal resource cap or a claim of a demonstrated SDK exploit.
 
 - Stop `smoke:steering --self-test` from rebuilding `dist/` before its offline probe. The rebuild briefly removed `dist/` while the concurrent package test packed the checkout, producing an intermittent missing `dist/index.js` failure. Live steering runs still rebuild first (fitchmultz/.github#98).
+
+### Changed
+
+- Refresh the fallback catalog from the authenticated SDK 1.0.40 catalog-only observation on 2026-10-31: 49 models, adding DeepSeek V4.1 Flash 1017 (`deepseek-v41-flash-1017`) and recording `cyber=false` on Claude Opus 5.5 variants. All 48 prior model IDs and the 33 bundled checkpoint-derived entries remain; no Agent/model turn or Cloud run was performed.
 
 ### Verification and limits
 

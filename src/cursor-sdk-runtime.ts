@@ -11,13 +11,10 @@ export type CursorSdkModule = typeof import("@cursor/sdk");
 let cursorSdk: Promise<CursorSdkModule> | undefined;
 
 /**
- * Load the Cursor SDK on first use. Evaluating it costs up to a second on a cold
- * start, which would otherwise delay every Pi start.
+ * Load the Cursor SDK on first use. Keep failures too: the host loader can cache
+ * a partially evaluated module, so retrying this import is not necessarily safe.
+ * Correct the underlying failure and restart the Pi process before trying again.
  */
 export function loadCursorSdk(): Promise<CursorSdkModule> {
-	cursorSdk ??= import("@cursor/sdk").catch((error: unknown) => {
-		cursorSdk = undefined;
-		throw error;
-	});
-	return cursorSdk;
+	return cursorSdk ??= import("@cursor/sdk");
 }
